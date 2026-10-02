@@ -190,6 +190,7 @@ export default function App() {
     <>
       <WebScrollFix />
       <Layout
+        logo={require("./assets/logo-5s.png")}
         current={page}
         onNavigate={handleNavigate}
         auditCount={rows.length}
