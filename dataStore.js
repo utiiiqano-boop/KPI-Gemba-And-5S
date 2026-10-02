@@ -10,6 +10,7 @@ const META = 'meta';
 const META_KEYS = new Set([
   'ID','Heure de début','Heure de fin','Adresse de messagerie','Nom',
   'Total points','Quiz feedback','Heure de la dernière modification','Date',
+  'Auditeur', 'Zone/Ligne', 'Pilot de zone',
 ]);
 
 export const ALL_META_KEYS = META_KEYS;
@@ -70,25 +71,43 @@ export async function loadAudits() {
 /* ---------- Score d'une ligne (N/A exclus) ---------- */
 
 export function computeRowScore(row) {
-  let earned = 0, total = 0, naCount = 0, ok = 0, nok = 0;
+  const earned = Number(row['Total points'] || 0);
+
+  let criteriaCount = 0;
+  let naCount = 0;
+  let okCount = 0;
+  let nokCount = 0;
+
   for (const key of Object.keys(row)) {
     if (!key || META_KEYS.has(key)) continue;
     if (key.startsWith('Points - ') || key.startsWith('Feedback - ')) continue;
-    const pk = `Points - ${key}`, fk = `Feedback - ${key}`;
+    if (/^Action\d*$/.test(key)) continue;
+
+    const pk = `Points - ${key}`;
+    const fk = `Feedback - ${key}`;
     if (!(pk in row) && !(fk in row)) continue;
+
+    criteriaCount++;
     const value = String(row[key] ?? '').trim();
-    const points = String(row[pk] ?? '').trim();
-    const feedback = String(row[fk] ?? '').trim();
-    if (!value && !points && !feedback) continue;
-    total++;
-    if (value === 'N/A') { naCount++; continue; }
-    const p = Number(points);
-    if (!isNaN(p)) earned += p;
-    if (value === 'OK' || (!isNaN(p) && p >= 1)) ok++;
-    else if (value === 'NOK' || (!isNaN(p) && p === 0)) nok++;
+
+    if (value === 'N/A') naCount++;
+    else if (value === 'OK') okCount++;
+    else if (value === 'NOK') nokCount++;
   }
-  const denominator = total - naCount;
-  return { earned, total, naCount, denominator, ok, nok, pct: denominator > 0 ? earned / denominator : 0 };
+
+  // ⚠️ DÉNOMINATEUR FIXE = 26 (nombre total de questions du questionnaire 5S)
+  const DENOMINATOR = 26;
+  const pct = earned / DENOMINATOR;
+
+  return {
+    earned,
+    total: criteriaCount,
+    naCount,
+    denominator: DENOMINATOR,
+    ok: okCount,
+    nok: nokCount,
+    pct,
+  };
 }
 
 /* ---------- Dashboard ---------- */

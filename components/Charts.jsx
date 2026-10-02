@@ -129,7 +129,7 @@ export function DonutChart({ segments, size = 180, thickness = 26, centerLabel, 
             <span style={{ fontSize: 12, color: C.textSoft, flex: 1 }}>{s.label}</span>
             <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{s.value}</span>
             <span style={{ fontSize: 11, color: C.textMuted, minWidth: 38, textAlign: 'right' }}>
-              {Math.round((s.value / total) * 100)}%
+              {total > 0 ? Math.round((s.value / total) * 1000) / 10 : 0}%
             </span>
           </div>
         ))}
