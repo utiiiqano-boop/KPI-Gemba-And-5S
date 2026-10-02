@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "5S Audit",
+    "slug": "kpi-gemba-5s",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "platforms": ["ios", "android", "web"],
+    "web": { "bundler": "metro" }
+  }
+}

@@ -1,0 +1,730 @@
+import React, { useMemo, useState } from 'react';
+import {
+  View, Text, FlatList, TouchableOpacity, ScrollView,
+  StyleSheet, SafeAreaView, TextInput, Platform, Alert,
+  StatusBar as RNStatusBar,
+} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import * as XLSX from 'xlsx';
+
+/* ================================================================ */
+/*   DESIGN TOKENS                                                   */
+/* ================================================================ */
+
+const C = {
+  bg: '#f2f4f8', surface: '#ffffff', border: '#e6e9ef',
+  text: '#0f172a', textSoft: '#64748b', textMuted: '#94a3b8',
+  primary: '#2563eb', primaryLt: '#dbeafe',
+  success: '#10b981', successLt: '#d1fae5',
+  warning: '#f59e0b', warningLt: '#fef3c7',
+  danger: '#ef4444', dangerLt: '#fee2e2',
+  neutral: '#64748b', neutralLt: '#e2e8f0',
+};
+const R = { sm: 8, md: 12, lg: 16, pill: 999 };
+
+const SHADOW = Platform.OS === 'web'
+  ? { boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)' }
+  : { shadowColor: '#0f172a', shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 };
+
+/* ================================================================ */
+/*   XLSX PARSING                                                    */
+/* ================================================================ */
+
+const META_KEYS = new Set([
+  'ID','Heure de début','Heure de fin','Adresse de messagerie','Nom',
+  'Total points','Quiz feedback','Heure de la dernière modification','Date',
+]);
+
+function parseWorkbook(arrayBuffer) {
+  const wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+  let h = -1;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i].map((c) => String(c ?? '').trim());
+    if (r.includes('ID') && r.includes('Nom')) { h = i; break; }
+  }
+  if (h === -1) throw new Error('Colonnes "ID" et "Nom" introuvables.');
+  const headers = rows[h].map((x) => String(x ?? '').trim());
+  const data = [];
+  for (let i = h + 1; i < rows.length; i++) {
+    const r = rows[i] || [];
+    const o = {}; let has = false;
+    for (let j = 0; j < headers.length; j++) {
+      const k = headers[j]; if (!k) continue;
+      const v = r[j] === undefined || r[j] === null ? '' : String(r[j]).trim();
+      o[k] = v; if (v) has = true;
+    }
+    if (has) data.push(o);
+  }
+  return data;
+}
+
+function getCriteria(row) {
+  const out = [];
+  for (const key of Object.keys(row)) {
+    if (!key || META_KEYS.has(key)) continue;
+    if (key.startsWith('Points - ') || key.startsWith('Feedback - ')) continue;
+    const pk = `Points - ${key}`, fk = `Feedback - ${key}`;
+    if (!(pk in row) && !(fk in row)) continue;
+    const value = String(row[key] ?? '').trim();
+    const points = String(row[pk] ?? '').trim();
+    const feedback = String(row[fk] ?? '').trim();
+    if (!value && !points && !feedback) continue;
+    const p = Number(points);
+    let status = 'na';
+    if (value === 'OK' || (!isNaN(p) && p >= 1)) status = 'ok';
+    else if (value === 'NOK' || (!isNaN(p) && p === 0)) status = 'nok';
+    out.push({ name: key, value, points, feedback, status });
+  }
+  return out;
+}
+
+function rowStats(row) {
+  const crit = getCriteria(row);
+  const total = Number(row['Total points'] || 0);
+  const scored = crit.filter((c) => c.status !== 'na');
+  const max = scored.length || 25;
+  const ok = crit.filter((c) => c.status === 'ok').length;
+  const nok = crit.filter((c) => c.status === 'nok').length;
+  return { crit, total, max, ok, nok, pct: max ? total / max : 0 };
+}
+
+const scoreColor = (p) => p >= 0.8 ? C.success : p >= 0.6 ? C.warning : C.danger;
+const scoreBg = (p) => p >= 0.8 ? C.successLt : p >= 0.6 ? C.warningLt : C.dangerLt;
+const rowTitle = (r) => r['Nom'] || r['Auditeur'] || r['Zone/Ligne'] || `Audit #${r['ID'] || '?'}`;
+const rowSubtitle = (r) => {
+  const p = [];
+  if (r['ID']) p.push(`#${r['ID']}`);
+  const d = String(r['Date'] || '').slice(0, 10);
+  if (d) p.push(d);
+  if (r['Zone/Ligne']) p.push(r['Zone/Ligne']);
+  return p.join(' · ');
+};
+
+/* ================================================================ */
+/*   FILE HANDLING                                                   */
+/* ================================================================ */
+
+function normalizeRows(data) {
+  return data
+    .map((r) => {
+      const o = {};
+      for (const k of Object.keys(r)) o[String(k).trim()] = r[k];
+      return o;
+    })
+    .filter((r) => r['ID'] || r['Auditeur'] || r['Zone/Ligne'])
+    .sort((a, b) => Number(b['ID'] || 0) - Number(a['ID'] || 0));
+}
+
+async function readWebFile(file) {
+  console.log('[5S] readWebFile :', file?.name, file?.size);
+  const ab = await file.arrayBuffer();
+  return normalizeRows(parseWorkbook(ab));
+}
+
+async function readNativeFile() {
+  const res = await DocumentPicker.getDocumentAsync({
+    type: [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel','*/*',
+    ],
+    copyToCacheDirectory: true, multiple: false,
+  });
+  if (res.canceled) return null;
+  const asset = res.assets?.[0] ?? res;
+  const b64 = await FileSystem.readAsStringAsync(asset.uri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  const bin = global.atob ? global.atob(b64)
+                          : Buffer.from(b64, 'base64').toString('binary');
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return normalizeRows(parseWorkbook(bytes.buffer));
+}
+
+/* ================================================================ */
+/*   SMALL COMPONENTS                                                */
+/* ================================================================ */
+
+function ProgressBar({ pct, color, height = 6 }) {
+  return (
+    <View style={[s.progressTrack, { height }]}>
+      <View style={[s.progressFill, {
+        width: `${Math.min(100, Math.max(0, pct * 100))}%`,
+        backgroundColor: color,
+      }]} />
+    </View>
+  );
+}
+
+function Chip({ label, count, active, onPress, color = C.primary }) {
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.8}
+      style={[s.chip, active && { backgroundColor: color, borderColor: color }]}>
+      <Text style={[s.chipText, active && { color: '#fff' }]}>
+        {label}{count !== undefined ? ` · ${count}` : ''}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+function StatCard({ label, value, color, icon }) {
+  return (
+    <View style={[s.statCard, { borderLeftColor: color }]}>
+      <Text style={s.statIcon}>{icon}</Text>
+      <Text style={[s.statValue, { color }]}>{value}</Text>
+      <Text style={s.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+/* ================================================================ */
+/*   IMPORT BUTTON — WEB (label + input) / NATIVE (Touchable)        */
+/* ================================================================ */
+
+function WebImportButton({ onFile, loading }) {
+  // <label> englobe l'input → clic n'importe où déclenche le picker
+  return React.createElement(
+    'label',
+    {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: loading ? '#93b4f5' : '#2563eb',
+        margin: '14px 20px 0 20px',
+        borderRadius: 12,
+        padding: '14px 0',
+        cursor: loading ? 'wait' : 'pointer',
+        boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)',
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: '15px',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        textAlign: 'center',
+        userSelect: 'none',
+        transition: 'background-color 0.15s ease',
+      },
+    },
+    React.createElement('input', {
+      type: 'file',
+      accept:
+        '.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
+      onChange: onFile,
+      disabled: loading,
+      style: { display: 'none' },
+    }),
+    loading ? '⏳ Lecture du fichier…' : '📥 Importer un fichier Excel (.xlsx)'
+  );
+}
+
+/* ================================================================ */
+/*   MAIN SCREEN                                                     */
+/* ================================================================ */
+
+export default function App() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [query, setQuery] = useState('');
+  const [fileName, setFileName] = useState(null);
+  const [error, setError] = useState(null);
+
+  const onWebFileChange = async (e) => {
+    const file = e?.target?.files?.[0];
+    if (e?.target) e.target.value = '';
+    if (!file) return;
+    setLoading(true); setError(null);
+    try {
+      const clean = await readWebFile(file);
+      setRows(clean);
+      setFileName(`${file.name} — ${clean.length} audit(s)`);
+    } catch (err) {
+      console.error('[5S] web read error', err);
+      setError(String(err.message || err));
+    } finally { setLoading(false); }
+  };
+
+  const handleImportNative = async () => {
+    setLoading(true); setError(null);
+    try {
+      const clean = await readNativeFile();
+      if (!clean) { setLoading(false); return; }
+      setRows(clean);
+      setFileName(`${clean.length} audit(s)`);
+    } catch (err) {
+      setError(String(err.message || err));
+      Alert.alert('Erreur', String(err.message || err));
+    } finally { setLoading(false); }
+  };
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return rows;
+    const q = query.toLowerCase();
+    return rows.filter((r) =>
+      [r['ID'], r['Nom'], r['Auditeur'], r['Zone/Ligne'], r['Date'], r['Pilot de zone']]
+        .filter(Boolean).some((v) => String(v).toLowerCase().includes(q)));
+  }, [rows, query]);
+
+  const globalStats = useMemo(() => {
+    if (!rows.length) return null;
+    let totalPts = 0, totalMax = 0, nOk = 0, nNok = 0;
+    for (const r of rows) {
+      const st = rowStats(r);
+      totalPts += st.total; totalMax += st.max;
+      nOk += st.ok; nNok += st.nok;
+    }
+    return { count: rows.length,
+      avg: totalMax ? Math.round((totalPts / totalMax) * 100) : 0,
+      ok: nOk, nok: nNok };
+  }, [rows]);
+
+  if (selected) return <DetailView row={selected} onBack={() => setSelected(null)} />;
+
+  return (
+    <SafeAreaView style={s.container}>
+      <StatusBar style="dark" />
+
+      <View style={s.header}>
+        <Text style={s.headerKicker}>GEMBA · 5S</Text>
+        <Text style={s.headerTitle}>Tableau de bord audits</Text>
+        <Text style={s.headerSub}>Importez votre fichier Excel pour visualiser les résultats</Text>
+      </View>
+
+      {/* ============================================================ */}
+      {/*   BOUTON D'IMPORT                                            */}
+      {/* ============================================================ */}
+      {Platform.OS === 'web' ? (
+        <WebImportButton onFile={onWebFileChange} loading={loading} />
+      ) : (
+        <TouchableOpacity
+          style={[s.importBtn, loading && { opacity: 0.7 }]}
+          onPress={handleImportNative}
+          disabled={loading}
+          activeOpacity={0.85}
+        >
+          <Text style={s.importBtnIcon}>{loading ? '⏳' : '📥'}</Text>
+          <Text style={s.importBtnText}>
+            {loading ? 'Lecture…' : 'Importer un fichier Excel (.xlsx)'}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {!!fileName && (
+        <View style={s.fileInfoBar}>
+          <Text style={s.fileInfoIcon}>✅</Text>
+          <Text style={s.fileInfoText} numberOfLines={1}>{fileName}</Text>
+        </View>
+      )}
+
+      {!!error && (
+        <View style={s.errorBar}>
+          <Text style={s.errorIcon}>⚠️</Text>
+          <Text style={s.errorText}>{error}</Text>
+        </View>
+      )}
+
+      {globalStats && (
+        <View style={s.statsRow}>
+          <StatCard label="Audits"  value={globalStats.count} color={C.primary} icon="📋" />
+          <StatCard label="Moyenne" value={`${globalStats.avg}%`}
+            color={scoreColor(globalStats.avg / 100)} icon="📊" />
+          <StatCard label="OK"      value={globalStats.ok} color={C.success} icon="✅" />
+          <StatCard label="NOK"     value={globalStats.nok} color={C.danger} icon="❌" />
+        </View>
+      )}
+
+      {rows.length > 0 && (
+        <View style={s.searchWrap}>
+          <Text style={s.searchIcon}>🔍</Text>
+          <TextInput
+            style={s.searchInput}
+            placeholder="Rechercher (ID, auditeur, zone, pilote)…"
+            placeholderTextColor={C.textMuted}
+            value={query} onChangeText={setQuery}
+          />
+          {!!query && (
+            <TouchableOpacity onPress={() => setQuery('')} style={s.clearBtn}>
+              <Text style={s.clearBtnText}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {rows.length > 0 && (
+        <>
+          <Text style={s.listCount}>
+            {filtered.length} / {rows.length} audit(s)
+          </Text>
+          <FlatList
+            data={filtered}
+            keyExtractor={(it, i) => `${it['ID'] || i}`}
+            contentContainerStyle={{ paddingBottom: 40 }}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => {
+              const { total, max, ok, nok, pct } = rowStats(item);
+              const color = scoreColor(pct);
+              const bg = scoreBg(pct);
+              return (
+                <TouchableOpacity style={s.card} activeOpacity={0.7}
+                  onPress={() => setSelected(item)}>
+                  <View style={s.cardTop}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={s.cardTitle} numberOfLines={1}>{rowTitle(item)}</Text>
+                      <Text style={s.cardSub} numberOfLines={1}>{rowSubtitle(item)}</Text>
+                    </View>
+                    <View style={[s.scorePill, { backgroundColor: bg }]}>
+                      <Text style={[s.scorePillValue, { color }]}>{total}</Text>
+                      <Text style={[s.scorePillMax, { color }]}>/{max}</Text>
+                    </View>
+                  </View>
+                  <View style={s.cardProgress}>
+                    <ProgressBar pct={pct} color={color} />
+                  </View>
+                  <View style={s.cardBottom}>
+                    {!!item['Pilot de zone'] && (
+                      <Text style={s.cardMeta} numberOfLines={1}>
+                        👤 {item['Pilot de zone']}
+                      </Text>
+                    )}
+                    <View style={s.cardBadges}>
+                      <View style={[s.miniBadge, { backgroundColor: C.successLt }]}>
+                        <Text style={[s.miniBadgeText, { color: C.success }]}>✅ {ok}</Text>
+                      </View>
+                      <View style={[s.miniBadge, { backgroundColor: C.dangerLt }]}>
+                        <Text style={[s.miniBadgeText, { color: C.danger }]}>❌ {nok}</Text>
+                      </View>
+                      <View style={[s.miniBadge, { backgroundColor: C.primaryLt }]}>
+                        <Text style={[s.miniBadgeText, { color: C.primary }]}>
+                          {Math.round(pct * 100)}%
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </>
+      )}
+
+      {rows.length === 0 && !loading && (
+        <View style={s.emptyBox}>
+          <Text style={s.emptyIcon}>📊</Text>
+          <Text style={s.emptyTitle}>Aucun audit chargé</Text>
+          <Text style={s.emptyText}>
+            Cliquez sur le bouton ci-dessus pour choisir{'\n'}
+            votre fichier Excel 5S et commencer l’analyse.
+          </Text>
+        </View>
+      )}
+    </SafeAreaView>
+  );
+}
+
+/* ================================================================ */
+/*   DETAIL SCREEN                                                   */
+/* ================================================================ */
+
+function DetailView({ row, onBack }) {
+  const { crit, total, max, ok, nok, pct } = rowStats(row);
+  const [filter, setFilter] = useState('all');
+  const [q, setQ] = useState('');
+
+  const visible = useMemo(() => {
+    let list = crit;
+    if (filter === 'ok')  list = list.filter((c) => c.status === 'ok');
+    if (filter === 'nok') list = list.filter((c) => c.status === 'nok');
+    if (filter === 'na')  list = list.filter((c) => c.status === 'na');
+    if (q.trim()) {
+      const sQ = q.toLowerCase();
+      list = list.filter((c) =>
+        c.name.toLowerCase().includes(sQ) || c.feedback.toLowerCase().includes(sQ));
+    }
+    return list;
+  }, [crit, filter, q]);
+
+  const color = scoreColor(pct);
+
+  return (
+    <SafeAreaView style={s.container}>
+      <StatusBar style="dark" />
+      <View style={s.detailTopBar}>
+        <TouchableOpacity onPress={onBack} style={s.backBtn} activeOpacity={0.7}>
+          <Text style={s.backBtnText}>←</Text>
+        </TouchableOpacity>
+        <Text style={s.detailTopTitle} numberOfLines={1}>Détail de l’audit</Text>
+      </View>
+
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        <View style={s.hero}>
+          <View style={s.heroHeader}>
+            <Text style={s.heroTitle}>{rowTitle(row)}</Text>
+            <Text style={s.heroSub}>{rowSubtitle(row)}</Text>
+          </View>
+          <View style={s.heroScoreRow}>
+            <View style={[s.heroScoreCircle, { borderColor: color }]}>
+              <Text style={[s.heroScoreValue, { color }]}>{total}</Text>
+              <Text style={s.heroScoreMax}>/ {max}</Text>
+            </View>
+            <View style={{ flex: 1, marginLeft: 16 }}>
+              <View style={s.heroStatRow}>
+                <Text style={s.heroStatLabel}>Score global</Text>
+                <Text style={[s.heroStatValue, { color }]}>{Math.round(pct * 100)}%</Text>
+              </View>
+              <ProgressBar pct={pct} color={color} height={8} />
+              <View style={s.heroStatChips}>
+                <View style={[s.heroChip, { backgroundColor: C.successLt }]}>
+                  <Text style={[s.heroChipText, { color: C.success }]}>✅ {ok} OK</Text>
+                </View>
+                <View style={[s.heroChip, { backgroundColor: C.dangerLt }]}>
+                  <Text style={[s.heroChipText, { color: C.danger }]}>❌ {nok} NOK</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Informations</Text>
+          <View style={s.metaCard}>
+            <Meta label="ID"             value={row['ID']} />
+            <Meta label="Date"           value={String(row['Date'] || '').slice(0, 10)} />
+            <Meta label="Heure"          value={`${row['Heure de début'] || ''} - ${row['Heure de fin'] || ''}`} />
+            <Meta label="Auditeur"       value={row['Auditeur']} />
+            <Meta label="Zone / Ligne"   value={row['Zone/Ligne']} />
+            <Meta label="Pilote de zone" value={row['Pilot de zone']} />
+            <Meta label="Email"          value={row['Adresse de messagerie']} />
+            <Meta label="Quiz feedback"  value={row['Quiz feedback']} />
+          </View>
+        </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Critères ({crit.length})</Text>
+          <View style={s.filtersRow}>
+            <Chip label="Tous" count={crit.length} active={filter === 'all'} onPress={() => setFilter('all')} />
+            <Chip label="OK"   count={crit.filter(c => c.status === 'ok').length}
+                  color={C.success} active={filter === 'ok'} onPress={() => setFilter('ok')} />
+            <Chip label="NOK"  count={crit.filter(c => c.status === 'nok').length}
+                  color={C.danger} active={filter === 'nok'} onPress={() => setFilter('nok')} />
+            <Chip label="N/A"  count={crit.filter(c => c.status === 'na').length}
+                  color={C.neutral} active={filter === 'na'} onPress={() => setFilter('na')} />
+          </View>
+
+          <View style={s.searchWrap}>
+            <Text style={s.searchIcon}>🔍</Text>
+            <TextInput style={s.searchInput} placeholder="Rechercher un critère…"
+              placeholderTextColor={C.textMuted} value={q} onChangeText={setQ} />
+            {!!q && (
+              <TouchableOpacity onPress={() => setQ('')} style={s.clearBtn}>
+                <Text style={s.clearBtnText}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {visible.length === 0 && (
+            <View style={s.noResultBox}>
+              <Text style={s.noResultText}>Aucun critère dans ce filtre.</Text>
+            </View>
+          )}
+          {visible.map((c, i) => <CritCard key={i} crit={c} />)}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function CritCard({ crit }) {
+  const { name, value, points, feedback, status } = crit;
+  const isAction = /^Action\d*$/.test(name);
+  const cfg = {
+    ok:  { bg: C.successLt, border: C.success, icon: '✅', text: C.success },
+    nok: { bg: C.dangerLt,  border: C.danger,  icon: '❌', text: C.danger  },
+    na:  { bg: C.neutralLt, border: C.neutral, icon: '⏸️', text: C.neutral },
+  }[status] || { bg: C.neutralLt, border: C.neutral, icon: '•', text: C.neutral };
+
+  const displayName = isAction ? (feedback || name || 'Action corrective') : name;
+
+  return (
+    <View style={[s.critCard, { borderLeftColor: cfg.border, borderLeftWidth: 4 }]}>
+      <View style={{ flex: 1 }}>
+        <View style={s.critHeader}>
+          <Text style={s.critStatusIcon}>{cfg.icon}</Text>
+          <Text style={s.critName}>{displayName}</Text>
+        </View>
+        {!isAction && !!value && (
+          <View style={[s.critValueChip, { backgroundColor: cfg.bg }]}>
+            <Text style={[s.critValueText, { color: cfg.text }]}>{value}</Text>
+          </View>
+        )}
+        {!!feedback && !isAction && <Text style={s.critFeedback}>💬 {feedback}</Text>}
+      </View>
+      {points !== '' && (
+        <View style={[s.critPoints, { backgroundColor: cfg.border }]}>
+          <Text style={s.critPointsText}>{points}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function Meta({ label, value }) {
+  if (!value) return null;
+  return (
+    <View style={s.metaRow}>
+      <Text style={s.metaLabel}>{label}</Text>
+      <Text style={s.metaValue} numberOfLines={2}>{value}</Text>
+    </View>
+  );
+}
+
+/* ================================================================ */
+/*   STYLES                                                          */
+/* ================================================================ */
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.bg,
+    paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 },
+
+  header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 6 },
+  headerKicker: { fontSize: 11, fontWeight: '700', letterSpacing: 2, color: C.primary, marginBottom: 4 },
+  headerTitle: { fontSize: 26, fontWeight: '800', color: C.text, letterSpacing: -0.5 },
+  headerSub: { fontSize: 13, color: C.textSoft, marginTop: 4 },
+
+  importBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.primary, marginHorizontal: 20, marginTop: 14,
+    borderRadius: R.md, paddingVertical: 14,
+    ...SHADOW,
+  },
+  importBtnIcon: { fontSize: 18, marginRight: 8 },
+  importBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+
+  fileInfoBar: { flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: 20, marginTop: 10, backgroundColor: C.successLt,
+    borderRadius: R.sm, paddingHorizontal: 12, paddingVertical: 8 },
+  fileInfoIcon: { fontSize: 14, marginRight: 6 },
+  fileInfoText: { color: C.success, fontWeight: '600', fontSize: 13, flex: 1 },
+
+  errorBar: { flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: 20, marginTop: 10, backgroundColor: C.dangerLt,
+    borderRadius: R.sm, paddingHorizontal: 12, paddingVertical: 8 },
+  errorIcon: { fontSize: 14, marginRight: 6 },
+  errorText: { color: C.danger, fontWeight: '600', fontSize: 13, flex: 1 },
+
+  statsRow: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 14, gap: 8 },
+  statCard: { flex: 1, backgroundColor: C.surface, borderRadius: R.md,
+    paddingVertical: 10, paddingHorizontal: 8, borderLeftWidth: 3,
+    alignItems: 'center', ...SHADOW },
+  statIcon: { fontSize: 14, marginBottom: 2 },
+  statValue: { fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
+  statLabel: { fontSize: 10, color: C.textSoft, marginTop: 1, fontWeight: '600' },
+
+  searchWrap: { flexDirection: 'row', alignItems: 'center',
+    backgroundColor: C.surface, marginHorizontal: 20, marginTop: 12,
+    borderRadius: R.md, paddingHorizontal: 12,
+    borderWidth: 1, borderColor: C.border },
+  searchIcon: { fontSize: 14, marginRight: 6 },
+  searchInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: C.text },
+  clearBtn: { paddingHorizontal: 6, paddingVertical: 4 },
+  clearBtnText: { color: C.textMuted, fontSize: 14, fontWeight: '700' },
+
+  listCount: { fontSize: 12, color: C.textSoft, fontWeight: '600',
+    marginTop: 14, marginBottom: 6, paddingHorizontal: 20,
+    textTransform: 'uppercase', letterSpacing: 1 },
+
+  card: { backgroundColor: C.surface, marginHorizontal: 20, marginBottom: 10,
+    borderRadius: R.lg, padding: 14, ...SHADOW },
+  cardTop: { flexDirection: 'row', alignItems: 'center' },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: C.text },
+  cardSub: { fontSize: 12, color: C.textSoft, marginTop: 2 },
+
+  scorePill: { minWidth: 62, paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: R.pill, alignItems: 'center', justifyContent: 'center',
+    flexDirection: 'row' },
+  scorePillValue: { fontSize: 16, fontWeight: '800' },
+  scorePillMax: { fontSize: 11, fontWeight: '600', marginLeft: 1, opacity: 0.7 },
+
+  cardProgress: { marginTop: 10 },
+  cardBottom: { flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', marginTop: 10 },
+  cardMeta: { fontSize: 12, color: C.textSoft, flex: 1, marginRight: 8 },
+  cardBadges: { flexDirection: 'row', gap: 6 },
+  miniBadge: { borderRadius: R.pill, paddingHorizontal: 8, paddingVertical: 3 },
+  miniBadgeText: { fontSize: 11, fontWeight: '700' },
+
+  progressTrack: { backgroundColor: C.border, borderRadius: R.pill, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: R.pill },
+
+  emptyBox: { flex: 1, alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 40, marginTop: -60 },
+  emptyIcon: { fontSize: 48, marginBottom: 12 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: C.text, marginBottom: 6 },
+  emptyText: { textAlign: 'center', color: C.textSoft, fontSize: 13, lineHeight: 20 },
+
+  detailTopBar: { flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 20, paddingTop: 8, paddingBottom: 8 },
+  backBtn: { width: 38, height: 38, borderRadius: R.pill, backgroundColor: C.surface,
+    alignItems: 'center', justifyContent: 'center', marginRight: 10, ...SHADOW },
+  backBtnText: { fontSize: 20, color: C.primary, fontWeight: '700' },
+  detailTopTitle: { fontSize: 16, fontWeight: '700', color: C.text, flex: 1 },
+
+  hero: { backgroundColor: C.surface, marginHorizontal: 20, marginTop: 8,
+    borderRadius: R.lg, padding: 16, ...SHADOW },
+  heroHeader: { marginBottom: 14 },
+  heroTitle: { fontSize: 20, fontWeight: '800', color: C.text, letterSpacing: -0.3 },
+  heroSub: { fontSize: 12, color: C.textSoft, marginTop: 4 },
+  heroScoreRow: { flexDirection: 'row', alignItems: 'center' },
+  heroScoreCircle: { width: 84, height: 84, borderRadius: 42, borderWidth: 5,
+    alignItems: 'center', justifyContent: 'center' },
+  heroScoreValue: { fontSize: 26, fontWeight: '800', lineHeight: 28 },
+  heroScoreMax: { fontSize: 11, color: C.textSoft, fontWeight: '600' },
+  heroStatRow: { flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'baseline', marginBottom: 6 },
+  heroStatLabel: { fontSize: 12, color: C.textSoft, fontWeight: '600' },
+  heroStatValue: { fontSize: 18, fontWeight: '800' },
+  heroStatChips: { flexDirection: 'row', gap: 6, marginTop: 10 },
+  heroChip: { borderRadius: R.pill, paddingHorizontal: 10, paddingVertical: 4 },
+  heroChipText: { fontSize: 12, fontWeight: '700' },
+
+  section: { marginTop: 20 },
+  sectionTitle: { fontSize: 13, fontWeight: '800', color: C.textSoft,
+    paddingHorizontal: 20, marginBottom: 10,
+    textTransform: 'uppercase', letterSpacing: 1 },
+
+  metaCard: { backgroundColor: C.surface, marginHorizontal: 20,
+    borderRadius: R.lg, paddingHorizontal: 14, paddingVertical: 4, ...SHADOW },
+  metaRow: { flexDirection: 'row', justifyContent: 'space-between',
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.border },
+  metaLabel: { color: C.textSoft, fontSize: 13, flex: 1 },
+  metaValue: { color: C.text, fontSize: 13, fontWeight: '600',
+    maxWidth: '60%', textAlign: 'right' },
+
+  filtersRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6,
+    paddingHorizontal: 20, marginBottom: 10 },
+  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: R.pill,
+    backgroundColor: C.surface, borderWidth: 1, borderColor: C.border },
+  chipText: { fontSize: 12, fontWeight: '700', color: C.textSoft },
+
+  noResultBox: { alignItems: 'center', paddingVertical: 30 },
+  noResultText: { color: C.textSoft, fontSize: 13 },
+
+  critCard: { backgroundColor: C.surface, marginHorizontal: 20, marginBottom: 8,
+    borderRadius: R.md, padding: 12, flexDirection: 'row',
+    alignItems: 'flex-start', ...SHADOW },
+  critHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  critStatusIcon: { fontSize: 14, marginRight: 6 },
+  critName: { fontSize: 13, fontWeight: '600', color: C.text, flex: 1, lineHeight: 18 },
+  critValueChip: { alignSelf: 'flex-start', borderRadius: R.pill,
+    paddingHorizontal: 8, paddingVertical: 2, marginTop: 4 },
+  critValueText: { fontSize: 11, fontWeight: '800' },
+  critFeedback: { fontSize: 12, color: C.textSoft, marginTop: 5, fontStyle: 'italic' },
+  critPoints: { minWidth: 28, paddingHorizontal: 8, paddingVertical: 4,
+    borderRadius: R.pill, alignItems: 'center', justifyContent: 'center',
+    marginLeft: 8, marginTop: 2 },
+  critPointsText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+});
