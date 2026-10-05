@@ -4,14 +4,14 @@ import { getAuth } from "firebase/auth";
 import { getDatabase } from "firebase/database";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDSrEMaNJNSx6Qi79gW52sxzZw1gnXIFCs",
-  authDomain: "kpi-gemba-and-5s.firebaseapp.com",
-  databaseURL: "https://kpi-gemba-and-5s-default-rtdb.firebaseio.com",
-  projectId: "kpi-gemba-and-5s",
-  storageBucket: "kpi-gemba-and-5s.firebasestorage.app",
-  messagingSenderId: "136197671183",
-  appId: "1:136197671183:web:bb3a280cd2953b91cf967a",
-  measurementId: "G-P0X2YRF3BZ"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 const app = initializeApp(firebaseConfig);
