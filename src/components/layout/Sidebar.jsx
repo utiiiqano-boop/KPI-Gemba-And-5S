@@ -6,22 +6,22 @@ import "./Sidebar.css";
 const NAV_ITEMS = [
   {
     section: "Overview",
-    items: [
-      { to: "/dashboard", label: "Dashboard", icon: "grid" },
-    ],
+    items: [{ to: "/dashboard", label: "Dashboard", icon: "grid" }],
   },
   {
     section: "5S",
     items: [
       { to: "/5s/import", label: "Import 5S Data", icon: "upload" },
-      { to: "/5s/results", label: "5S Results", icon: "chart" },
+      { to: "/5s/results", label: "5S Résultats", icon: "chart" },
+      { to: "/5s/table", label: "5S Tableau", icon: "table" },
     ],
   },
   {
     section: "Gemba OJT",
     items: [
       { to: "/gemba/import", label: "Import Gemba OJT", icon: "upload" },
-      { to: "/gemba/results", label: "Gemba Results", icon: "chart" },
+      { to: "/gemba/results", label: "Gemba Résultats", icon: "chart" },
+      { to: "/gemba/table", label: "Gemba Tableau", icon: "table" },
     ],
   },
 ];
@@ -48,6 +48,12 @@ const ICONS = {
       <path d="M7 15l4-4 3 3 5-6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
+  table: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M3 9h18M3 15h18M9 3v18" />
+    </svg>
+  ),
 };
 
 export default function Sidebar({ collapsed, onToggle }) {
@@ -70,7 +76,6 @@ export default function Sidebar({ collapsed, onToggle }) {
 
   return (
     <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
-      {/* Logo */}
       <div className="sidebar-brand">
         <div className="brand-mark">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -86,14 +91,12 @@ export default function Sidebar({ collapsed, onToggle }) {
         )}
       </div>
 
-      {/* Toggle */}
       <button className="sidebar-toggle" onClick={onToggle} aria-label="Toggle sidebar">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
 
-      {/* Nav */}
       <nav className="sidebar-nav">
         {NAV_ITEMS.map((group) => (
           <div key={group.section} className="nav-group">
@@ -113,7 +116,6 @@ export default function Sidebar({ collapsed, onToggle }) {
         ))}
       </nav>
 
-      {/* User */}
       <div className="sidebar-user">
         <div className="user-avatar">{initials}</div>
         {!collapsed && (

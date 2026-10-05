@@ -1,19 +1,39 @@
 // =========================================================
-// Aggregation helpers for 5S + Gemba dashboards
-// Tolerant to records missing normalized fields — falls back
-// to _raw Excel columns when needed.
+// Aggregation helpers — 5S + Gemba
 // =========================================================
 
 export const PILLARS = ["1S", "2S", "3S", "4S", "5S"];
 
-/** Parse the many date formats we see. Returns null if unparseable. */
+/**
+ * Parse a date from:
+ *   - "YYYY-MM-DD HH:mm:ss"
+ *   - "DD/MM/YYYY"
+ *   - Excel serial number (e.g. 46066 → 2026-09-01)
+ *   - ISO string
+ * Returns null if unparseable.
+ */
 export function parseDate(v) {
-  if (!v) return null;
+  if (v === null || v === undefined || v === "") return null;
+
+  // Excel serial number (a number, or numeric string)
+  const asNum = typeof v === "number" ? v : (/^\d+(\.\d+)?$/.test(String(v)) ? Number(v) : NaN);
+  if (!isNaN(asNum) && asNum > 32874 && asNum < 73415) {
+    const ms = (asNum - 25569) * 86400 * 1000;
+    const d = new Date(ms);
+    return isNaN(d) ? null : d;
+  }
+
   const s = String(v).trim();
+
+  // "YYYY-MM-DD ..."
   let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+
+  // "DD/MM/YYYY"
   m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
   if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+
+  // Fallback
   const d = new Date(s);
   return isNaN(d) ? null : d;
 }
@@ -23,70 +43,59 @@ export function yyyymm(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-// ---------------------------------------------------------
-// Tolerant accessors for 5S records
-// ---------------------------------------------------------
+// ---------- 5S tolerant accessors ----------
 
 export function get5SDate(r) {
   return (
     parseDate(r?.meta?.date) ||
-    parseDate(r?.meta?.startTime) ||
     parseDate(r?._raw?.Date) ||
     parseDate(r?._raw?.["Date "]) ||
-    parseDate(r?._raw?.["Heure_de_début"]) ||
+    parseDate(r?.meta?.startTime) ||
     parseDate(r?._raw?.["Heure de début"]) ||
     null
   );
 }
-
 export function get5SZone(r) {
-  return (
-    r?.meta?.zone ||
-    r?._raw?.["Zone_Ligne"] ||
-    r?._raw?.["Zone/Ligne"] ||
-    r?._raw?.Zone ||
-    "—"
-  );
+  return r?.meta?.zone || r?._raw?.["Zone_Ligne"] || r?._raw?.["Zone/Ligne"] || "—";
 }
-
 export function get5SAuditor(r) {
-  return (
-    r?.meta?.auditor ||
-    r?._raw?.Auditeur ||
-    r?._raw?.Auditor ||
-    "—"
-  );
+  return r?.meta?.auditor || r?._raw?.Auditeur || "—";
 }
-
 export function get5SZoneLeader(r) {
-  return (
-    r?.meta?.zoneLeader ||
-    r?._raw?.["Pilot_de_zone"] ||
-    r?._raw?.["Pilot de zone"] ||
-    "—"
-  );
+  return r?.meta?.zoneLeader || r?._raw?.["Pilot_de_zone"] || r?._raw?.["Pilot de zone"] || "—";
 }
-
 export function get5STotal(r) {
   const v = r?.meta?.totalPoints;
   if (v !== undefined && v !== null && v !== "") return Number(v);
-  const raw = r?._raw?.["Total_points"] ?? r?._raw?.["Total points"];
-  return Number(raw ?? 0) || 0;
+  return Number(r?._raw?.["Total_points"] ?? r?._raw?.["Total points"] ?? 0) || 0;
 }
-
-/** Tolerant 5S answers — reads from meta.answers, or _raw if missing. */
 export function get5SAnswers(r) {
-  if (Array.isArray(r?.answers) && r.answers.length) return r.answers;
-  return [];
+  return Array.isArray(r?.answers) ? r.answers : [];
 }
 
-export function has5SPillarScores(r) {
-  return r?.pillarScores && typeof r.pillarScores === "object";
+export function get5SScore(r) {
+  if (r?.scores && typeof r.scores === "object") return r.scores;
+  const ans = get5SAnswers(r);
+  let ok = 0, nok = 0, na = 0;
+  ans.forEach((a) => {
+    if (a.status === "OK") ok++;
+    else if (a.status === "NOK") nok++;
+    else if (a.status === "N/A") na++;
+    else {
+      const p = Number(a.points);
+      if (!isNaN(p)) { p > 0 ? ok++ : nok++; } else na++;
+    }
+  });
+  const applicable = ok + nok;
+  return {
+    ok, nok, na, applicable,
+    total: 26,
+    percent: applicable ? +((ok / applicable) * 100).toFixed(1) : 0,
+    rawTotal: get5STotal(r),
+  };
 }
 
-// ---------------------------------------------------------
-// 5S aggregations
-// ---------------------------------------------------------
+// ---------- 5S aggregations ----------
 
 export function fiveSRadarByMonth(records, month) {
   const filtered = records.filter((r) => {
@@ -94,30 +103,9 @@ export function fiveSRadarByMonth(records, month) {
     return d && yyyymm(d) === month;
   });
   return PILLARS.map((p) => {
-    const sums = filtered.map((r) => r?.pillarScores?.[p]?.average ?? 0);
+    const sums = filtered.map((r) => r?.pillarScores?.[p]?.score).filter((v) => v !== undefined);
     const avg = sums.length ? sums.reduce((a, b) => a + b, 0) / sums.length : 0;
     return { pillar: p, average: +avg.toFixed(2), count: sums.length };
-  });
-}
-
-/** Fallback radar: derive from answers directly if pillarScores missing. */
-export function fiveSRadarFromAnswers(records, month) {
-  const filtered = records.filter((r) => {
-    const d = get5SDate(r);
-    return d && yyyymm(d) === month;
-  });
-  return PILLARS.map((p) => {
-    const points = [];
-    filtered.forEach((r) => {
-      const ans = get5SAnswers(r);
-      ans.filter((a) => a.pillar === p).forEach((a) => {
-        if (a.points !== undefined && a.points !== null) {
-          points.push(Number(a.points));
-        }
-      });
-    });
-    const avg = points.length ? points.reduce((a, b) => a + b, 0) / points.length : 0;
-    return { pillar: p, average: +avg.toFixed(2), count: points.length };
   });
 }
 
@@ -126,10 +114,10 @@ export function fiveSTrend(records) {
     .map((r) => {
       const d = get5SDate(r);
       if (!d) return null;
+      const s = get5SScore(r);
       return {
-        date: d,
-        ts: d.getTime(),
-        total: get5STotal(r),
+        date: d, ts: d.getTime(),
+        percent: s.percent, ok: s.ok, nok: s.nok, na: s.na,
         zone: get5SZone(r),
       };
     })
@@ -142,14 +130,14 @@ export function fiveSByZone(records) {
   const map = new Map();
   records.forEach((r) => {
     const zone = get5SZone(r);
-    const pts = get5STotal(r);
-    if (!map.has(zone)) map.set(zone, { zone, total: 0, count: 0 });
+    const s = get5SScore(r);
+    if (!map.has(zone)) map.set(zone, { zone, sum: 0, count: 0 });
     const cur = map.get(zone);
-    cur.total += pts;
+    cur.sum += s.percent;
     cur.count += 1;
   });
   return [...map.values()]
-    .map((z) => ({ zone: z.zone, avg: +(z.total / z.count).toFixed(2), count: z.count }))
+    .map((z) => ({ zone: z.zone, avg: +(z.sum / z.count).toFixed(2), count: z.count }))
     .sort((a, b) => b.avg - a.avg);
 }
 
@@ -157,24 +145,24 @@ export function fiveSTopFailures(records, limit = 10) {
   const map = new Map();
   records.forEach((r) => {
     get5SAnswers(r).forEach((a) => {
-      const key = a.index;
-      if (!map.has(key)) {
-        map.set(key, {
-          index: a.index,
-          pillar: a.pillar,
-          short: a.short || a.question || `Q${a.index}`,
-          question: a.question,
-          nok: 0,
-          total: 0,
+      if (!map.has(a.index)) {
+        map.set(a.index, {
+          index: a.index, pillar: a.pillar,
+          short: a.short || a.question, question: a.question,
+          ok: 0, nok: 0, na: 0,
         });
       }
-      const cur = map.get(key);
-      cur.total += 1;
-      if (Number(a.points) === 0) cur.nok += 1;
+      const cur = map.get(a.index);
+      if (a.status === "OK") cur.ok++;
+      else if (a.status === "NOK") cur.nok++;
+      else cur.na++;
     });
   });
   return [...map.values()]
-    .map((x) => ({ ...x, rate: x.total ? +((x.nok / x.total) * 100).toFixed(1) : 0 }))
+    .map((x) => {
+      const app = x.ok + x.nok;
+      return { ...x, total: app, rate: app ? +((x.nok / app) * 100).toFixed(1) : 0 };
+    })
     .sort((a, b) => b.nok - a.nok)
     .slice(0, limit);
 }
@@ -185,12 +173,12 @@ export function fiveSActions(records) {
     get5SAnswers(r).forEach((a) => {
       if (a.action && String(a.action).trim()) {
         out.push({
-          date: r?.meta?.date || r?._raw?.Date || r?._raw?.["Heure de début"] || "",
+          date: r?.meta?.date || r?._raw?.Date || "",
           zone: get5SZone(r),
           auditor: get5SAuditor(r),
           pillar: a.pillar,
           qIndex: a.index,
-          short: a.short || a.question,
+          short: a.short,
           action: a.action,
         });
       }
@@ -212,9 +200,7 @@ export function available5SMonths(records) {
   return [...set].sort().reverse();
 }
 
-// ---------------------------------------------------------
-// Gemba aggregations (unchanged)
-// ---------------------------------------------------------
+// ---------- Gemba ----------
 
 export function gembaTrend(records) {
   const map = new Map();
@@ -224,10 +210,8 @@ export function gembaTrend(records) {
     const key = `${yyyymm(d)}|${r.date}|${r.ligne || r.uap || "?"}`;
     if (!map.has(key)) {
       map.set(key, {
-        date: d,
-        ts: d.getTime(),
-        ligne: r.ligne || "",
-        uap: r.uap || "",
+        date: d, ts: d.getTime(),
+        ligne: r.ligne || "", uap: r.uap || "",
         score: Number(r.score ?? 0),
       });
     }
@@ -273,14 +257,10 @@ export function gembaActions(records) {
       return a && a !== "-" && a !== "—";
     })
     .map((r) => ({
-      date: r.date,
-      uap: r.uap,
-      ligne: r.ligne,
-      auditeur: r.auditeur,
+      date: r.date, uap: r.uap, ligne: r.ligne, auditeur: r.auditeur,
       question: r.question || r.pointM,
       action: r.actionCorrective,
-      pilote: r.pilote,
-      dateAction: r.dateAction,
+      pilote: r.pilote, dateAction: r.dateAction,
       score: Number(r.score ?? 0),
     }))
     .sort((a, b) => {
