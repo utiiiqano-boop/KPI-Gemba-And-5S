@@ -100,7 +100,7 @@ export default function ResultsGemba() {
         <Select label="UAP" value={uap} onChange={setUap} options={uaps} />
         <Select label="Ligne" value={ligne} onChange={setLigne} options={lignes} />
         <Select label="Auditeur" value={auditeur} onChange={setAuditeur} options={auditeurs} />
-        <DateRange from={from} to={to} onFrom={setFrom} onTo={setTo} />
+        <DateRange key={`${from}|${to}`} from={from} to={to} onFrom={setFrom} onTo={setTo} />
         <ResetButton onClick={reset} disabled={!hasFilter} />
       </ResultFilters>
 

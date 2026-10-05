@@ -106,7 +106,7 @@ export default function Results5S() {
         <Select label="Zone / Ligne" value={zone} onChange={setZone} options={zones} />
         <Select label="Auditeur" value={auditor} onChange={setAuditor} options={auditors} />
         <Select label="Mois" value={month} onChange={setMonth} options={months} />
-        <DateRange from={from} to={to} onFrom={setFrom} onTo={setTo} />
+        <DateRange key={`${from}|${to}`} from={from} to={to} onFrom={setFrom} onTo={setTo} />
         <ResetButton onClick={reset} disabled={!hasFilter} />
       </ResultFilters>
 

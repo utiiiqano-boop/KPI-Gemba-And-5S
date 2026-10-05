@@ -1,21 +1,26 @@
 // =========================================================
-// Gemba OJT schema — matches "Gemba app.xlsx"
+// Gemba OJT schema — mapping POSITIONNEL (par index)
 //
-// Header row 1:
-//   Date | UAP | Ligne | UAP | Auditeur | Point M | Question |
-//   Réponse | Action Corrective | Pilote | Date Action | Score (%)
-//
-// NOTE: "UAP" appears twice. SheetJS renames the second to "UAP_1".
-// We keep both (uap and uap2) so nothing is lost.
+// Structure vérifiée du fichier "Gemba app.xlsx" :
+//   [0] A: Date
+//   [1] B: Ligne
+//   [2] C: UAP
+//   [3] D: Auditeur
+//   [4] E: Point M
+//   [5] F: Question
+//   [6] G: Réponse
+//   [7] H: Action Corrective
+//   [8] I: Pilote
+//   [9] J: Date Action
+//   [10] K: Score (%)
 // =========================================================
 
 export const HEADER_ROW_INDEX = 0;
 
 export const GEMBA_HEADERS = [
   "Date",
-  "UAP",        // first UAP column
   "Ligne",
-  "UAP_1",      // SheetJS duplicate-rename for the 2nd "UAP"
+  "UAP",
   "Auditeur",
   "Point M",
   "Question",
@@ -26,22 +31,21 @@ export const GEMBA_HEADERS = [
   "Score (%)",
 ];
 
-export function normalizeGembaRow(rawRow) {
-  const get = (name) => rawRow[name];
+export function normalizeGembaRow(rawRow, headers = GEMBA_HEADERS) {
+  const v = headers.map((h) => rawRow[h]);
 
   return {
-    date: toStr(get("Date")),
-    uap: toStr(get("UAP")),
-    ligne: toStr(get("Ligne")),
-    uap2: toStr(get("UAP_1")),         // the 2nd UAP column (kept for reference)
-    auditeur: toStr(get("Auditeur")),
-    pointM: toStr(get("Point M")),
-    question: toStr(get("Question")),
-    reponse: toStr(get("Réponse")),
-    actionCorrective: toStr(get("Action Corrective")),
-    pilote: toStr(get("Pilote")),
-    dateAction: toStr(get("Date Action")),
-    score: toNum(get("Score (%)")),
+    date:             toStr(v[0]),
+    ligne:            toStr(v[1]),
+    uap:              toStr(v[2]),
+    auditeur:         toStr(v[3]),
+    pointM:           toStr(v[4]),
+    question:         toStr(v[5]),
+    reponse:          toStr(v[6]),
+    actionCorrective: toStr(v[7]),
+    pilote:           toStr(v[8]),
+    dateAction:       toStr(v[9]),
+    score:            toNum(v[10]),
   };
 }
 

@@ -1,24 +1,12 @@
 // =========================================================
-// 5S Excel schema — aligned to the columns you specified.
-//
-// File layout:
-//   Row 1 : column letters (garbage) → SKIP
-//   Row 2 : real headers              → HEADER_ROW
-//   Row 3+: data
-//
-// Header sequence (20 metadata cols + 26 blocks of 6 cols):
-//   ID | Heure de début | Heure de fin | Adresse de messagerie | Nom |
-//   Total points | Quiz feedback | Heure de la dernière modification |
-//   Date | Points - Date | Feedback - Date |
-//   Auditeur | Points - Auditeur | Feedback - Auditeur |
-//   Zone/Ligne | Points - Zone/Ligne | Feedback - Zone/Ligne |
-//   Pilot de zone | Points - Pilot de zone | Feedback - Pilot de zone |
-//   then 26 × [Question | Points-Q | Feedback-Q | Action | Points-Action | Feedback-Action]
+// 5S Excel schema — aligned to "5S APP.xlsx"
+// Le fichier a 2 lignes d'en-tête : ligne 1 = lettres, ligne 2 = vrais noms
+// Les colonnes Points/Feedback varient d'ordre selon la question → on
+// identifie chaque colonne PAR SON NOM dans chaque bloc de 6.
 // =========================================================
 
 export const HEADER_ROW_INDEX = 1;
 
-// 20 metadata columns (in the exact order of the file)
 export const META_HEADERS = [
   "ID",
   "Heure de début",
@@ -42,7 +30,6 @@ export const META_HEADERS = [
   "Feedback - Pilot de zone",
 ];
 
-// The 26 questions, in order, with pillar + short label
 export const QUESTIONS_5S = [
   { index: 1,  pillar: "1S", pillarName: "Seiri (Trier)",           short: "Pas d'objets inutiles" },
   { index: 2,  pillar: "1S", pillarName: "Seiri (Trier)",           short: "Pas d'affichages inutiles" },
@@ -72,52 +59,73 @@ export const QUESTIONS_5S = [
   { index: 26, pillar: "5S", pillarName: "Shitsuke (Respecter)",    short: "Flux de production respecté" },
 ];
 
-/**
- * Parse one raw 5S row positionally.
- *   rawRow : object from readExcelFile (headers → values)
- *   headers: array of header names (in file order)
- */
+function toDateOnly(v) {
+  if (!v) return "";
+  const s = String(v).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : s;
+}
+
 export function normalize5SRow(rawRow, headers) {
   const values = headers.map((h) => rawRow[h]);
 
-  // ---- Metadata (cols 0..19) ----
+  const dateFromStart = toDateOnly(values[1]);
+  const dateFromDate  = toDateOnly(values[8]);
+
   const meta = {
-    id:              toStr(values[0]),   // ID
-    startTime:       toStr(values[1]),   // Heure de début
-    endTime:         toStr(values[2]),   // Heure de fin
-    email:           toStr(values[3]),   // Adresse de messagerie
-    name:            toStr(values[4]),   // Nom
-    totalPoints:     toNum(values[5]),   // Total points
-    quizFeedback:    toStr(values[6]),   // Quiz feedback
-    lastModified:    toStr(values[7]),   // Heure de la dernière modification
-    date:            toStr(values[8]),   // Date
-    // Points - Date / Feedback - Date are ignored (empty in file)
-    auditor:         toStr(values[11]),  // Auditeur
-    // Points - Auditeur / Feedback - Auditeur ignored
-    zone:            toStr(values[14]),  // Zone/Ligne
-    // Points - Zone/Ligne / Feedback - Zone/Ligne ignored
-    zoneLeader:      toStr(values[17]),  // Pilot de zone
+    id:              toStr(values[0]),
+    startTime:       toStr(values[1]),
+    endTime:         toStr(values[2]),
+    email:           toStr(values[3]),
+    name:            toStr(values[4]),
+    totalPoints:     toNum(values[5]),
+    quizFeedback:    toStr(values[6]),
+    lastModified:    toStr(values[7]),
+    date:            dateFromStart || dateFromDate,
+    auditor:         toStr(values[11]),
+    zone:            toStr(values[14]),
+    zoneLeader:      toStr(values[17]),
   };
 
-  // ---- 26 questions × 6 columns each, starting at col 20 ----
   const FIRST_Q = 20;
   const BLOCK = 6;
 
   const answers = QUESTIONS_5S.map((q, idx) => {
     const base = FIRST_Q + idx * BLOCK;
-    const questionText = toStr(values[base]);
-    const points       = toNum(values[base + 1]);
-    const feedback     = toStr(values[base + 2]);
-    const action       = toStr(values[base + 3]);
-    const actionPoints = toNum(values[base + 4]);
-    const actionFeed   = toStr(values[base + 5]);
+    const blockHeaders = headers.slice(base, base + BLOCK);
+    const blockValues = values.slice(base, base + BLOCK);
 
-    // Status: OK (points > 0), NOK (points = 0 with a real entry), N/A (blank)
-    const rawPoints = values[base + 1];
+    // On lit CHAQUE colonne par son NOM dans le bloc (l'ordre varie selon Q)
+    let questionText = "";
+    let points = 0;
+    let feedback = "";
+    let action = "";
+    let actionPoints = 0;
+    let actionFeedback = "";
     let status = "N/A";
-    if (rawPoints !== "" && rawPoints !== null && rawPoints !== undefined) {
-      const n = Number(String(rawPoints).replace(",", "."));
-      if (!isNaN(n)) status = n > 0 ? "OK" : "NOK";
+
+    for (let j = 0; j < BLOCK; j++) {
+      const h = String(blockHeaders[j] || "").trim();
+      const v = blockValues[j];
+
+      if (h.startsWith("Points - Action")) {
+        actionPoints = toNum(v);
+      } else if (h.startsWith("Feedback - Action")) {
+        actionFeedback = toStr(v);
+      } else if (h.startsWith("Action")) {
+        action = toStr(v);
+      } else if (h.startsWith("Points - ")) {
+        points = toNum(v);
+        if (v !== "" && v !== null && v !== undefined) {
+          const n = Number(String(v).replace(",", "."));
+          if (!isNaN(n)) status = n > 0 ? "OK" : "NOK";
+        }
+      } else if (h.startsWith("Feedback - ")) {
+        feedback = toStr(v);
+      } else {
+        // Colonne sans préfixe = texte de la question
+        questionText = toStr(v);
+      }
     }
 
     return {
@@ -131,11 +139,10 @@ export function normalize5SRow(rawRow, headers) {
       feedback,
       action,
       actionPoints,
-      actionFeedback: actionFeed,
+      actionFeedback,
     };
   });
 
-  // ---- Per-pillar subtotals ----
   const pillarScores = {};
   ["1S", "2S", "3S", "4S", "5S"].forEach((p) => {
     const items = answers.filter((a) => a.pillar === p);
@@ -152,7 +159,6 @@ export function normalize5SRow(rawRow, headers) {
     };
   });
 
-  // ---- Global score for this audit ----
   const ok  = answers.filter((a) => a.status === "OK").length;
   const nok = answers.filter((a) => a.status === "NOK").length;
   const na  = answers.filter((a) => a.status === "N/A").length;
@@ -165,7 +171,7 @@ export function normalize5SRow(rawRow, headers) {
     scores: {
       ok, nok, na,
       applicable,
-      total: answers.length,     // always 26
+      total: answers.length,
       percent: applicable ? +((ok / applicable) * 100).toFixed(1) : 0,
       rawTotal: meta.totalPoints,
     },

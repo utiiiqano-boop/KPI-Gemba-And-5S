@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRealtimeList } from "../../hooks/useFirebaseData";
 import { parseDate, groupGembaAudits } from "../../utils/analytics";
 import ResultsTable from "../../components/results/ResultsTable";
@@ -15,9 +15,33 @@ export default function TableGemba() {
   const [to, setTo] = useState("");
   const [viewMode, setViewMode] = useState("audits");
 
-  const lignes = useMemo(() => [...new Set(records.map((r) => r.ligne).filter(Boolean))].sort(), [records]);
-  const uaps = useMemo(() => [...new Set(records.map((r) => r.uap).filter(Boolean))].sort(), [records]);
-  const auditeurs = useMemo(() => [...new Set(records.map((r) => r.auditeur).filter(Boolean))].sort(), [records]);
+  // Force reset au montage (évite le pré-remplissage navigateur)
+  useEffect(() => { setFrom(""); setTo(""); }, []);
+
+  const monthsList = useMemo(() => {
+    const set = new Set();
+    records.forEach((r) => {
+      const d = parseDate(r.date);
+      if (d) {
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        set.add(key);
+      }
+    });
+    return [...set].sort().reverse();
+  }, [records]);
+
+  const lignes = useMemo(
+    () => [...new Set(records.map((r) => r.ligne).filter(Boolean))].sort(),
+    [records]
+  );
+  const uaps = useMemo(
+    () => [...new Set(records.map((r) => r.uap).filter(Boolean))].sort(),
+    [records]
+  );
+  const auditeurs = useMemo(
+    () => [...new Set(records.map((r) => r.auditeur).filter(Boolean))].sort(),
+    [records]
+  );
 
   const filtered = useMemo(() => {
     return records.filter((r) => {
@@ -25,54 +49,67 @@ export default function TableGemba() {
       if (ligne && r.ligne !== ligne) return false;
       if (uap && r.uap !== uap) return false;
       if (auditeur && r.auditeur !== auditeur) return false;
-      if (from) { if (!d || d < new Date(from)) return false; }
-      if (to) { if (!d || d > new Date(to)) return false; }
+      if (d) {
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        if (from && key < from) return false;
+        if (to && key > to) return false;
+      } else if (from || to) {
+        return false;
+      }
       return true;
     });
   }, [records, ligne, uap, auditeur, from, to]);
 
   const auditRows = useMemo(() => {
     const audits = groupGembaAudits(filtered);
-    return audits.map((a) => {
-      const ok = a.questions.filter((q) => String(q.reponse).toUpperCase() === "OK").length;
-      const nok = a.questions.filter((q) => String(q.reponse).toUpperCase() === "NOK").length;
-      const na = a.questions.filter((q) => String(q.reponse).toUpperCase() === "N/A").length;
-      const d = parseDate(a.date);
-      return {
-        _id: a.key,
-        dateLabel: d ? d.toLocaleDateString("fr-FR") : (a.date || "—"),
-        dateTs: d ? d.getTime() : 0,
-        uap: a.uap || "—",
-        ligne: a.ligne || "—",
-        questions: a.questions.length,
-        ok, nok, na,
-        score: a.score,
-      };
-    }).sort((a, b) => b.dateTs - a.dateTs);
+    return audits
+      .map((a) => {
+        const ok = a.questions.filter((q) => String(q.reponse).toUpperCase() === "OK").length;
+        const nok = a.questions.filter((q) => String(q.reponse).toUpperCase() === "NOK").length;
+        const na = a.questions.filter((q) => String(q.reponse).toUpperCase() === "N/A").length;
+        const d = parseDate(a.date);
+        return {
+          _id: a.key,
+          dateLabel: d ? d.toLocaleDateString("fr-FR") : (a.date || "—"),
+          dateTs: d ? d.getTime() : 0,
+          uap: a.uap || "—",
+          ligne: a.ligne || "—",
+          questions: a.questions.length,
+          ok,
+          nok,
+          na,
+          score: a.score,
+        };
+      })
+      .sort((a, b) => b.dateTs - a.dateTs);
   }, [filtered]);
 
   const questionRows = useMemo(() => {
-    return filtered.map((r, i) => {
-      const d = parseDate(r.date);
-      return {
-        _id: r._id || i,
-        dateLabel: d ? d.toLocaleDateString("fr-FR") : (r.date || "—"),
-        dateTs: d ? d.getTime() : 0,
-        uap: r.uap || "—",
-        ligne: r.ligne || "—",
-        auditeur: r.auditeur || "—",
-        pointM: r.pointM || "—",
-        question: r.question || "—",
-        reponse: r.reponse || "—",
-        action: r.actionCorrective || "—",
-        pilote: r.pilote || "—",
-        dateAction: r.dateAction || "—",
-        score: Number(r.score ?? 0),
-      };
-    }).sort((a, b) => b.dateTs - a.dateTs);
+    return filtered
+      .map((r, i) => {
+        const d = parseDate(r.date);
+        return {
+          _id: r._id || i,
+          dateLabel: d ? d.toLocaleDateString("fr-FR") : (r.date || "—"),
+          dateTs: d ? d.getTime() : 0,
+          uap: r.uap || "—",
+          ligne: r.ligne || "—",
+          auditeur: r.auditeur || "—",
+          pointM: r.pointM || "—",
+          question: r.question || "—",
+          reponse: r.reponse || "—",
+          action: r.actionCorrective || "—",
+          pilote: r.pilote || "—",
+          dateAction: r.dateAction || "—",
+          score: Number(r.score ?? 0),
+        };
+      })
+      .sort((a, b) => b.dateTs - a.dateTs);
   }, [filtered]);
 
-  const reset = () => { setLigne(""); setUap(""); setAuditeur(""); setFrom(""); setTo(""); };
+  const reset = () => {
+    setLigne(""); setUap(""); setAuditeur(""); setFrom(""); setTo("");
+  };
   const hasFilter = ligne || uap || auditeur || from || to;
 
   const repPill = (v) => {
@@ -82,7 +119,12 @@ export default function TableGemba() {
   };
 
   const scoreCell = (r) => (
-    <span style={{ color: r.score >= 90 ? "#86efac" : r.score >= 75 ? "#fde047" : "#fca5a5", fontWeight: 600 }}>
+    <span
+      style={{
+        color: r.score >= 90 ? "#86efac" : r.score >= 75 ? "#fde047" : "#fca5a5",
+        fontWeight: 600,
+      }}
+    >
       {Number(r.score).toFixed(1)}
     </span>
   );
@@ -124,11 +166,15 @@ export default function TableGemba() {
         <Select label="Ligne" value={ligne} onChange={setLigne} options={lignes} />
         <Select label="UAP" value={uap} onChange={setUap} options={uaps} />
         <Select label="Auditeur" value={auditeur} onChange={setAuditeur} options={auditeurs} />
-        <DateRange from={from} to={to} onFrom={setFrom} onTo={setTo} />
+        <DateRange from={from} to={to} onFrom={setFrom} onTo={setTo} months={monthsList} />
         <button
           type="button"
           className="filter-reset"
-          style={{ background: "rgba(99,102,241,0.15)", color: "#a5b4fc", borderColor: "rgba(99,102,241,0.4)" }}
+          style={{
+            background: "rgba(99,102,241,0.15)",
+            color: "#a5b4fc",
+            borderColor: "rgba(99,102,241,0.4)",
+          }}
           onClick={() => setViewMode(viewMode === "audits" ? "questions" : "audits")}
         >
           {viewMode === "audits" ? "Vue: Audits groupés" : "Vue: Questions (détail)"}

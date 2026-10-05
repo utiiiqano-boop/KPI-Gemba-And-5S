@@ -18,16 +18,32 @@ export function Select({ label, value, onChange, options, allLabel = "Tous" }) {
   );
 }
 
-export function DateRange({ from, to, onFrom, onTo }) {
+export function DateRange({ from, to, onFrom, onTo, months = [] }) {
   return (
     <>
       <div className="filter-field">
-        <label>Du</label>
-        <input type="date" value={from} onChange={(e) => onFrom(e.target.value)} />
+        <label>Mois du</label>
+        <select
+          value={from === "" ? "__all__" : from}
+          onChange={(e) => onFrom(e.target.value === "__all__" ? "" : e.target.value)}
+        >
+          <option value="__all__">Tous</option>
+          {months.map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
       </div>
       <div className="filter-field">
-        <label>Au</label>
-        <input type="date" value={to} onChange={(e) => onTo(e.target.value)} />
+        <label>au</label>
+        <select
+          value={to === "" ? "__all__" : to}
+          onChange={(e) => onTo(e.target.value === "__all__" ? "" : e.target.value)}
+        >
+          <option value="__all__">—</option>
+          {months.map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
       </div>
     </>
   );

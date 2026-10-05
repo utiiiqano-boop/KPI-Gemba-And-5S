@@ -2,7 +2,8 @@ import { useMemo, useState, useEffect } from "react";
 import { useRealtimeList } from "../../hooks/useFirebaseData";
 import {
   PILLARS,
-  get5SDate, get5SZone, get5SAuditor, get5SZoneLeader, get5SScore, get5SAnswers,
+  get5SDate, get5SZone, get5SAuditor, get5SZoneLeader, get5STotal,
+  get5SAnswers, get5SScore,
 } from "../../utils/analytics";
 import ResultsTable from "../../components/results/ResultsTable";
 import ResultFilters, { Select, DateRange, ResetButton } from "../../components/results/ResultFilters";
@@ -17,8 +18,19 @@ export default function Table5S() {
   const [to, setTo] = useState("");
   const [showAll, setShowAll] = useState(false);
 
-  // Ensure dates start empty even if browser tries to prefill
   useEffect(() => { setFrom(""); setTo(""); }, []);
+
+  const monthsList = useMemo(() => {
+    const set = new Set();
+    records.forEach((r) => {
+      const d = get5SDate(r);
+      if (d) {
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        set.add(key);
+      }
+    });
+    return [...set].sort().reverse();
+  }, [records]);
 
   const zones = useMemo(
     () => [...new Set(records.map(get5SZone).filter((z) => z && z !== "—"))].sort(),
@@ -37,11 +49,12 @@ export default function Table5S() {
         const d = get5SDate(r);
         if (zone && z !== zone) return false;
         if (auditor && a !== auditor) return false;
-        if (from) {                    // only filter if user actually picked a date
-          if (!d || d < new Date(from)) return false;
-        }
-        if (to) {
-          if (!d || d > new Date(to)) return false;
+        if (d) {
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+          if (from && key < from) return false;
+          if (to && key > to) return false;
+        } else if (from || to) {
+          return false;
         }
         return true;
       })
@@ -51,7 +64,8 @@ export default function Table5S() {
         const ans = get5SAnswers(r);
         const pillarPoints = {};
         PILLARS.forEach((p) => {
-          pillarPoints[p] = ans.filter((x) => x.pillar === p)
+          pillarPoints[p] = ans
+            .filter((x) => x.pillar === p)
             .reduce((acc, x) => acc + Number(x.points ?? 0), 0);
         });
         const qStatus = {};
@@ -103,7 +117,7 @@ export default function Table5S() {
       render: (r) => (
         <strong style={{
           color: r.score >= 90 ? "#86efac" : r.score >= 75 ? "#fde047" : "#fca5a5",
-        }}>{r.score.toFixed(1)}%</strong>
+        }}>{Number(r.score).toFixed(1)}%</strong>
       ) },
   ];
 
@@ -122,11 +136,15 @@ export default function Table5S() {
       <ResultFilters>
         <Select label="Zone/Ligne" value={zone} onChange={setZone} options={zones} />
         <Select label="Auditeur" value={auditor} onChange={setAuditor} options={auditors} />
-        <DateRange from={from} to={to} onFrom={setFrom} onTo={setTo} />
+        <DateRange from={from} to={to} onFrom={setFrom} onTo={setTo} months={monthsList} />
         <button
           type="button"
           className="filter-reset"
-          style={{ background: "rgba(99,102,241,0.15)", color: "#a5b4fc", borderColor: "rgba(99,102,241,0.4)" }}
+          style={{
+            background: "rgba(99,102,241,0.15)",
+            color: "#a5b4fc",
+            borderColor: "rgba(99,102,241,0.4)",
+          }}
           onClick={() => setShowAll((v) => !v)}
         >
           {showAll ? "Masquer Q1–Q26" : "Afficher Q1–Q26"}
