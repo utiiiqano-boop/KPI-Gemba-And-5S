@@ -2,38 +2,23 @@
 // Aggregation helpers — 5S + Gemba
 // =========================================================
 
+import { zoneToUap, normalizeUapGemba } from "../config/dashboardConfig";
+
 export const PILLARS = ["1S", "2S", "3S", "4S", "5S"];
 
-/**
- * Parse a date from:
- *   - "YYYY-MM-DD HH:mm:ss"
- *   - "DD/MM/YYYY"
- *   - Excel serial number (e.g. 46066 → 2026-09-01)
- *   - ISO string
- * Returns null if unparseable.
- */
 export function parseDate(v) {
   if (v === null || v === undefined || v === "") return null;
-
-  // Excel serial number (a number, or numeric string)
   const asNum = typeof v === "number" ? v : (/^\d+(\.\d+)?$/.test(String(v)) ? Number(v) : NaN);
   if (!isNaN(asNum) && asNum > 32874 && asNum < 73415) {
     const ms = (asNum - 25569) * 86400 * 1000;
     const d = new Date(ms);
     return isNaN(d) ? null : d;
   }
-
   const s = String(v).trim();
-
-  // "YYYY-MM-DD ..."
   let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
-
-  // "DD/MM/YYYY"
   m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
   if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
-
-  // Fallback
   const d = new Date(s);
   return isNaN(d) ? null : d;
 }
@@ -43,7 +28,23 @@ export function yyyymm(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-// ---------- 5S tolerant accessors ----------
+export function isoWeekKey(d) {
+  if (!d) return "";
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((t - yearStart) / 86400000) + 1) / 7);
+  return `${t.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
+export function weekKeyMinus(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n * 7);
+  return isoWeekKey(d);
+}
+
+// ---------- 5S accessors ----------
 
 export function get5SDate(r) {
   return (
@@ -58,6 +59,10 @@ export function get5SDate(r) {
 export function get5SZone(r) {
   return r?.meta?.zone || r?._raw?.["Zone_Ligne"] || r?._raw?.["Zone/Ligne"] || "—";
 }
+export function get5SUap(r) {
+  return zoneToUap(get5SZone(r));
+}
+
 export function get5SAuditor(r) {
   return r?.meta?.auditor || r?._raw?.Auditeur || "—";
 }
@@ -72,7 +77,6 @@ export function get5STotal(r) {
 export function get5SAnswers(r) {
   return Array.isArray(r?.answers) ? r.answers : [];
 }
-
 export function get5SScore(r) {
   if (r?.scores && typeof r.scores === "object") return r.scores;
   const ans = get5SAnswers(r);
@@ -88,8 +92,7 @@ export function get5SScore(r) {
   });
   const applicable = ok + nok;
   return {
-    ok, nok, na, applicable,
-    total: 26,
+    ok, nok, na, applicable, total: 26,
     percent: applicable ? +((ok / applicable) * 100).toFixed(1) : 0,
     rawTotal: get5STotal(r),
   };
@@ -115,11 +118,7 @@ export function fiveSTrend(records) {
       const d = get5SDate(r);
       if (!d) return null;
       const s = get5SScore(r);
-      return {
-        date: d, ts: d.getTime(),
-        percent: s.percent, ok: s.ok, nok: s.nok, na: s.na,
-        zone: get5SZone(r),
-      };
+      return { date: d, ts: d.getTime(), percent: s.percent, ok: s.ok, nok: s.nok, na: s.na, zone: get5SZone(r) };
     })
     .filter(Boolean)
     .sort((a, b) => a.ts - b.ts)
@@ -146,11 +145,7 @@ export function fiveSTopFailures(records, limit = 10) {
   records.forEach((r) => {
     get5SAnswers(r).forEach((a) => {
       if (!map.has(a.index)) {
-        map.set(a.index, {
-          index: a.index, pillar: a.pillar,
-          short: a.short || a.question, question: a.question,
-          ok: 0, nok: 0, na: 0,
-        });
+        map.set(a.index, { index: a.index, pillar: a.pillar, short: a.short || a.question, question: a.question, ok: 0, nok: 0, na: 0 });
       }
       const cur = map.get(a.index);
       if (a.status === "OK") cur.ok++;
@@ -200,7 +195,7 @@ export function available5SMonths(records) {
   return [...set].sort().reverse();
 }
 
-// ---------- Gemba ----------
+// ---------- Gemba aggregations ----------
 
 export function gembaTrend(records) {
   const map = new Map();
@@ -209,15 +204,10 @@ export function gembaTrend(records) {
     if (!d) return;
     const key = `${yyyymm(d)}|${r.date}|${r.ligne || r.uap || "?"}`;
     if (!map.has(key)) {
-      map.set(key, {
-        date: d, ts: d.getTime(),
-        ligne: r.ligne || "", uap: r.uap || "",
-        score: Number(r.score ?? 0),
-      });
+      map.set(key, { date: d, ts: d.getTime(), ligne: r.ligne || "", uap: r.uap || "", score: Number(r.score ?? 0) });
     }
   });
-  return [...map.values()]
-    .sort((a, b) => a.ts - b.ts)
+  return [...map.values()].sort((a, b) => a.ts - b.ts)
     .map((x) => ({ ...x, label: x.date.toLocaleDateString("fr-FR") }));
 }
 
@@ -246,8 +236,7 @@ export function gembaTopFailures(records, limit = 10) {
   });
   return [...map.values()]
     .map((x) => ({ ...x, rate: x.total ? +((x.nok / x.total) * 100).toFixed(1) : 0 }))
-    .sort((a, b) => b.nok - a.nok)
-    .slice(0, limit);
+    .sort((a, b) => b.nok - a.nok).slice(0, limit);
 }
 
 export function gembaActions(records) {
@@ -258,10 +247,8 @@ export function gembaActions(records) {
     })
     .map((r) => ({
       date: r.date, uap: r.uap, ligne: r.ligne, auditeur: r.auditeur,
-      question: r.question || r.pointM,
-      action: r.actionCorrective,
-      pilote: r.pilote, dateAction: r.dateAction,
-      score: Number(r.score ?? 0),
+      question: r.question || r.pointM, action: r.actionCorrective,
+      pilote: r.pilote, dateAction: r.dateAction, score: Number(r.score ?? 0),
     }))
     .sort((a, b) => {
       const da = parseDate(a.dateAction)?.getTime() ?? parseDate(a.date)?.getTime() ?? 0;
@@ -269,3 +256,492 @@ export function gembaActions(records) {
       return db - da;
     });
 }
+
+// ---------- Gemba audits grouping ----------
+
+export function gembaAuditKey(r) {
+  const date = String(r.date ?? "").trim();
+  const uap = String(r.uap ?? "").trim();
+  const ligne = String(r.ligne ?? "").trim();
+  return `${date}|${uap}|${ligne}`;
+}
+
+export function groupGembaAudits(records) {
+  const map = new Map();
+  records.forEach((r) => {
+    const key = gembaAuditKey(r);
+    if (!map.has(key)) {
+      map.set(key, { key, date: r.date, uap: r.uap, ligne: r.ligne, score: Number(r.score ?? 0), questions: [] });
+    }
+    map.get(key).questions.push({
+      pointM: r.pointM, question: r.question, reponse: r.reponse,
+      action: r.actionCorrective, pilote: r.pilote, dateAction: r.dateAction, auditeur: r.auditeur,
+    });
+  });
+  return [...map.values()].sort((a, b) => {
+    const da = parseDate(a.date)?.getTime() ?? 0;
+    const db = parseDate(b.date)?.getTime() ?? 0;
+    return db - da;
+  });
+}
+
+export function countGembaAudits(records) {
+  return new Set(records.map(gembaAuditKey)).size;
+}
+
+export function avgGembaScore(records) {
+  const audits = groupGembaAudits(records);
+  if (!audits.length) return 0;
+  const s = audits.reduce((a, x) => a + x.score, 0);
+  return +(s / audits.length).toFixed(1);
+}
+
+// ---------- Per UAP / pillar / 5M ----------
+
+export function avg5SByZone(records) {
+  const map = new Map();
+  records.forEach((r) => {
+    const zone = get5SZone(r);
+    const s = get5SScore(r);
+    if (!map.has(zone)) map.set(zone, { zone, sum: 0, count: 0 });
+    const cur = map.get(zone);
+    cur.sum += s.percent;
+    cur.count += 1;
+  });
+  return [...map.values()]
+    .map((z) => ({ zone: z.zone, avg: +(z.sum / z.count).toFixed(1), count: z.count }))
+    .sort((a, b) => b.avg - a.avg);
+}
+
+export function avgGembaByUap(records) {
+  const map = new Map();
+  records.forEach((r) => {
+    const uap = r.uap || "—";
+    if (!map.has(uap)) map.set(uap, { uap, sum: 0, count: 0, seen: new Set() });
+    const cur = map.get(uap);
+    const sig = gembaAuditKey(r);
+    if (cur.seen.has(sig)) return;
+    cur.seen.add(sig);
+    cur.sum += Number(r.score ?? 0);
+    cur.count += 1;
+  });
+  return [...map.values()]
+    .map((x) => ({ uap: x.uap, avg: x.count ? +(x.sum / x.count).toFixed(1) : 0, count: x.count }))
+    .sort((a, b) => b.avg - a.avg);
+}
+
+export function avg5SByPillar(records) {
+  return PILLARS.map((p) => {
+    const vals = records.map((r) => r?.pillarScores?.[p]?.score).filter((v) => v !== undefined);
+    const avg = vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : 0;
+    return { pillar: p, avg, count: vals.length };
+  });
+}
+
+export function normalize5M(pointM) {
+  const s = String(pointM || "").trim();
+  if (/^méthode/i.test(s) || /formulaire|dossier|hse|instructions|stockage|ok démarrage/i.test(s)) return "Méthode";
+  if (/^milieu/i.test(s)) return "Milieu";
+  if (/^matière/i.test(s)) return "Matière";
+  if (/^main\s*d/i.test(s)) return "Main d'œuvre";
+  if (/maintenance/i.test(s)) return "Maintenance";
+  if (/chariot/i.test(s)) return "Chariot élévateur";
+  if (/identification/i.test(s)) return "Identification";
+  return s || "—";
+}
+
+export function avgGembaBy5M(records) {
+  const map = new Map();
+  records.forEach((r) => {
+    const m = normalize5M(r.pointM || r.question);
+    if (!map.has(m)) map.set(m, { m, ok: 0, nok: 0, na: 0, total: 0 });
+    const cur = map.get(m);
+    cur.total += 1;
+    const rep = String(r.reponse || "").toUpperCase();
+    if (rep === "OK") cur.ok++;
+    else if (rep === "NOK") cur.nok++;
+    else cur.na++;
+  });
+  return [...map.values()]
+    .map((x) => {
+      const app = x.ok + x.nok;
+      return { ...x, rate: app ? +((x.ok / app) * 100).toFixed(1) : 0 };
+    })
+    .sort((a, b) => a.rate - b.rate);
+}
+
+// ---------- Month helpers ----------
+
+export function monthly5SAgg(records) {
+  const map = new Map();
+  records.forEach((r) => {
+    const d = get5SDate(r);
+    if (!d) return;
+    const k = yyyymm(d);
+    if (!map.has(k)) map.set(k, { month: k, sum: 0, count: 0 });
+    const cur = map.get(k);
+    cur.sum += get5SScore(r).percent;
+    cur.count += 1;
+  });
+  return [...map.values()]
+    .map((x) => ({ month: x.month, avg: +(x.sum / x.count).toFixed(1), count: x.count }))
+    .sort((a, b) => a.month.localeCompare(b.month));
+}
+
+export function monthlyGembaAgg(records) {
+  const seen = new Set();
+  const map = new Map();
+  records.forEach((r) => {
+    const d = parseDate(r.date);
+    if (!d) return;
+    const k = yyyymm(d);
+    const sig = gembaAuditKey(r);
+    if (seen.has(sig)) return;
+    seen.add(sig);
+    if (!map.has(k)) map.set(k, { month: k, sum: 0, count: 0 });
+    const cur = map.get(k);
+    cur.sum += Number(r.score ?? 0);
+    cur.count += 1;
+  });
+  return [...map.values()]
+    .map((x) => ({ month: x.month, avg: +(x.sum / x.count).toFixed(1), count: x.count }))
+    .sort((a, b) => a.month.localeCompare(b.month));
+}
+
+export function prevMonth(month) {
+  if (!month) return "";
+  const [y, m] = month.split("-").map(Number);
+  return yyyymm(new Date(y, m - 2, 1));
+}
+
+export function currentMonth() {
+  return yyyymm(new Date());
+}
+
+// ---------- Weekly counts ----------
+
+export function count5SPerWeek(records) {
+  const map = new Map();
+  records.forEach((r) => {
+    const d = get5SDate(r);
+    if (!d) return;
+    const k = isoWeekKey(d);
+    map.set(k, (map.get(k) || 0) + 1);
+  });
+  return map;
+}
+
+export function countGembaPerWeek(records) {
+  const seen = new Set();
+  const map = new Map();
+  records.forEach((r) => {
+    const d = parseDate(r.date);
+    if (!d) return;
+    const k = isoWeekKey(d);
+    const sig = gembaAuditKey(r);
+    if (seen.has(sig)) return;
+    seen.add(sig);
+    map.set(k, (map.get(k) || 0) + 1);
+  });
+  return map;
+}
+
+export function lastCompleteWeek(records, type) {
+  const counter = type === "5S" ? count5SPerWeek(records) : countGembaPerWeek(records);
+  const keys = [...counter.keys()].sort();
+  return keys.length ? keys[keys.length - 1] : weekKeyMinus(1);
+}
+
+export function filter5SByWeek(records, weekKey) {
+  return records.filter((r) => {
+    const d = get5SDate(r);
+    return d && isoWeekKey(d) === weekKey;
+  });
+}
+
+export function filterGembaByWeek(records, weekKey) {
+  return records.filter((r) => {
+    const d = parseDate(r.date);
+    return d && isoWeekKey(d) === weekKey;
+  });
+}
+
+// ---------- Chart builders ----------
+
+function weekMinusKey(baseKey, n) {
+  const [y, w] = baseKey.split("-W").map(Number);
+  const simple = new Date(y, 0, 1 + (w - 1) * 7);
+  const day = simple.getDay() || 7;
+  const thursday = new Date(simple);
+  thursday.setDate(simple.getDate() + (4 - day));
+  thursday.setDate(thursday.getDate() - n * 7);
+  return isoWeekKey(thursday);
+}
+
+export function buildPlanVsRealised(records, type, weeks = 24, plannedPerWeek = 5) {
+  const counter = type === "5S" ? count5SPerWeek(records) : countGembaPerWeek(records);
+  const latest = [...counter.keys()].sort().pop() || weekKeyMinus(0);
+  const out = [];
+  for (let i = weeks - 1; i >= 0; i--) {
+    const k = weekMinusKey(latest, i);
+    const realised = counter.get(k) || 0;
+    out.push({
+      week: k,
+      label: k.replace(/^\d{4}-/, ""),
+      planned: plannedPerWeek,
+      realised,
+    });
+  }
+  return out;
+}
+
+export function buildUapWeeklySeries(records, type, weeks = 8, groupKey = "uap") {
+  const counter = type === "5S" ? count5SPerWeek(records) : countGembaPerWeek(records);
+  const latest = [...counter.keys()].sort().pop() || weekKeyMinus(0);
+
+  const weekList = [];
+  for (let i = weeks - 1; i >= 0; i--) {
+    const k = weekMinusKey(latest, i);
+    weekList.push({ key: k, label: k.replace(/^\d{4}-/, "") });
+  }
+
+  const groups = new Set();
+  records.forEach((r) => {
+    const g = (() => {
+        if (type === "5S") {
+          return groupKey === "uap" ? get5SUap(r) : get5SZone(r);
+        }
+        // GEMBA
+        if (groupKey === "uap") {
+          return normalizeUapGemba(r.uap) || r.uap || "—";
+        }
+        if (groupKey === "zone") {
+          return r.uap || "—";
+        }
+        // default → ligne
+        return r.ligne || r.uap || "—";
+      })();
+    if (g && g !== "—") groups.add(g);
+  });
+
+  const data = weekList.map((w) => {
+    const row = { label: w.label };
+    groups.forEach((g) => { row[g] = null; });
+
+    if (type === "5S") {
+      records.forEach((r) => {
+        const d = get5SDate(r);
+        if (!d || isoWeekKey(d) !== w.key) return;
+        const g = (() => {
+        if (type === "5S") {
+          return groupKey === "uap" ? get5SUap(r) : get5SZone(r);
+        }
+        // GEMBA
+        if (groupKey === "uap") {
+          return normalizeUapGemba(r.uap) || r.uap || "—";
+        }
+        if (groupKey === "zone") {
+          return r.uap || "—";
+        }
+        // default → ligne
+        return r.ligne || r.uap || "—";
+      })();
+        if (!g || g === "—") return;
+        const cur = get5SScore(r).percent;
+        row[g] = row[g] === null ? cur : +(((row[g] + cur) / 2)).toFixed(1);
+      });
+    } else {
+      const seen = new Set();
+      const sumByGroup = {}, cntByGroup = {};
+      records.forEach((r) => {
+        const d = parseDate(r.date);
+        if (!d || isoWeekKey(d) !== w.key) return;
+        const g = (() => {
+        if (type === "5S") {
+          return groupKey === "uap" ? get5SUap(r) : get5SZone(r);
+        }
+        // GEMBA
+        if (groupKey === "uap") {
+          return normalizeUapGemba(r.uap) || r.uap || "—";
+        }
+        if (groupKey === "zone") {
+          return r.uap || "—";
+        }
+        // default → ligne
+        return r.ligne || r.uap || "—";
+      })();
+        if (!g || g === "—") return;
+        const sig = gembaAuditKey(r);
+        if (seen.has(sig)) return;
+        seen.add(sig);
+        sumByGroup[g] = (sumByGroup[g] || 0) + Number(r.score ?? 0);
+        cntByGroup[g] = (cntByGroup[g] || 0) + 1;
+      });
+      Object.keys(sumByGroup).forEach((g) => {
+        row[g] = +(sumByGroup[g] / cntByGroup[g]).toFixed(1);
+      });
+    }
+    return row;
+  });
+
+  return { data, keys: [...groups] };
+}
+
+export function buildWeekPerGroupScores(records, weekKey, type, groupKey = "ligne") {
+  const out = new Map();
+  if (type === "5S") {
+    records.forEach((r) => {
+      const d = get5SDate(r);
+      if (!d || isoWeekKey(d) !== weekKey) return;
+      const g = (() => {
+        if (type === "5S") {
+          return groupKey === "uap" ? get5SUap(r) : get5SZone(r);
+        }
+        // GEMBA
+        if (groupKey === "uap") {
+          return normalizeUapGemba(r.uap) || r.uap || "—";
+        }
+        if (groupKey === "zone") {
+          return r.uap || "—";
+        }
+        // default → ligne
+        return r.ligne || r.uap || "—";
+      })();
+      if (!g || g === "—") return;
+      const cur = get5SScore(r).percent;
+      out.set(g, out.get(g) === undefined ? cur : +(((out.get(g) + cur) / 2)).toFixed(1));
+    });
+  } else {
+    const seen = new Set();
+    const sumByGroup = {}, cntByGroup = {};
+    records.forEach((r) => {
+      const d = parseDate(r.date);
+      if (!d || isoWeekKey(d) !== weekKey) return;
+      const g = r.ligne || r.uap || "—";
+      if (!g || g === "—") return;
+      const sig = gembaAuditKey(r);
+      if (seen.has(sig)) return;
+      seen.add(sig);
+      sumByGroup[g] = (sumByGroup[g] || 0) + Number(r.score ?? 0);
+      cntByGroup[g] = (cntByGroup[g] || 0) + 1;
+    });
+    Object.keys(sumByGroup).forEach((g) => {
+      out.set(g, +(sumByGroup[g] / cntByGroup[g]).toFixed(1));
+    });
+  }
+  return [...out.entries()]
+    .map(([name, score]) => ({ name, score }))
+    .sort((a, b) => b.score - a.score);
+}
+
+/**
+ * Small multiples: one mini-chart per entity with ALL its audits + linear trend.
+ * Only entities present in `entitiesFilter` (a Set) are included.
+ *
+ * Returns: [{
+ *   name, points:[{ label, value, date }], average, latest,
+ *   regression:{ slope, intercept }, slopePerStep, trend: "up"|"down"|"stable"
+ * }]
+ */
+export function buildSmallMultiples(records, type, groupKey = "ligne", entitiesFilter = null) {
+  // Safety: accept null / array / Set / plain object for entitiesFilter
+  let filterSet = null;
+  if (entitiesFilter) {
+    if (entitiesFilter instanceof Set) filterSet = entitiesFilter;
+    else if (Array.isArray(entitiesFilter)) filterSet = new Set(entitiesFilter);
+    else if (typeof entitiesFilter === "object") filterSet = new Set(Object.keys(entitiesFilter));
+  }
+
+  // 1. Group records by entity, keeping ALL audits (full history)
+  const groups = new Map();
+
+  records.forEach((r) => {
+    let name, dateObj, value;
+
+    if (type === "5S") {
+      name = groupKey === "zone" ? get5SZone(r) : (r.uap || "—");
+      dateObj = get5SDate(r);
+      value = dateObj ? get5SScore(r).percent : null;
+    } else {
+      name = groupKey === "zone" ? (r.uap || "—") : (r.ligne || r.uap || "—");
+      dateObj = parseDate(r.date);
+      value = dateObj ? Number(r.score ?? 0) : null;
+    }
+
+    if (!name || name === "—" || !dateObj || value === null) return;
+    if (filterSet && !filterSet.has(name)) return;
+
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push({ date: dateObj, value });
+  });
+
+  // 2. Aggregate per entity (dedupe by calendar day)
+  const out = [];
+
+  groups.forEach((items, name) => {
+    const byDay = new Map();
+    items.forEach((it) => {
+      const k = it.date.toISOString().slice(0, 10);
+      if (!byDay.has(k)) byDay.set(k, it.value);
+    });
+
+    const points = [...byDay.entries()]
+      .map(([k, v]) => {
+        const d = new Date(k);
+        return {
+          date: d,
+          label: d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }),
+          value: +Number(v).toFixed(1),
+        };
+      })
+      .sort((a, b) => a.date - b.date);
+
+    if (points.length === 0) return;
+
+    const values = points.map((p) => p.value);
+    const average = +(values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
+
+    // 3. Linear regression y = intercept + slope * i
+    let slope = 0;
+    let intercept = values[0] ?? 0;
+    if (values.length >= 2) {
+      const n = values.length;
+      const xs = values.map((_, i) => i);
+      const meanX = xs.reduce((a, b) => a + b, 0) / n;
+      const meanY = values.reduce((a, b) => a + b, 0) / n;
+      let num = 0, den = 0;
+      for (let i = 0; i < n; i++) {
+        num += (xs[i] - meanX) * (values[i] - meanY);
+        den += (xs[i] - meanX) ** 2;
+      }
+      slope = den !== 0 ? num / den : 0;
+      intercept = meanY - slope * meanX;
+    }
+    const slopePerStep = +slope.toFixed(2);
+
+    let trend = "stable";
+    if (slopePerStep > 0.5) trend = "up";
+    else if (slopePerStep < -0.5) trend = "down";
+
+    out.push({
+      name,
+      points,
+      average,
+      regression: { slope, intercept },
+      slopePerStep,
+      trend,
+      latest: values[values.length - 1],
+    });
+  });
+
+  // 4. Sort by most recently audited first
+  out.sort((a, b) => b.points[b.points.length - 1].date - a.points[a.points.length - 1].date);
+
+  return out;
+}
+
+export const SERIES_COLORS = [
+  "#a855f7", "#06b6d4", "#f59e0b", "#22c55e", "#ef4444",
+  "#6366f1", "#ec4899", "#14b8a6", "#f97316", "#84cc16",
+  "#eab308", "#3b82f6", "#8b5cf6", "#10b981", "#f43f5e",
+];

@@ -8,7 +8,7 @@ export default function ExcelImporter({
   columns = [],
   onImport,
   templateName = "template.xlsx",
-  headerRowIndex = 0,   // 👈 NEW: 0 = row 1 is header, 1 = row 2 is header
+  headerRowIndex = 0,
 }) {
   const [dragging, setDragging] = useState(false);
   const [parsed, setParsed] = useState(null);
@@ -78,12 +78,25 @@ export default function ExcelImporter({
     try {
       setImporting(true);
       setError("");
-      await onImport(parsed.rows, parsed);
-      setSuccessMsg(`✅ Imported ${parsed.rows.length} row(s) successfully!`);
-      setTimeout(() => {
-        setParsed(null);
-        setFileName("");
-      }, 1500);
+
+      // Caller may return a custom string to display, or nothing at all.
+      const result = await onImport(parsed.rows, parsed);
+
+      const msg =
+        typeof result === "string" && result.trim()
+          ? result
+          : `✅ Imported ${parsed.rows.length} row(s) successfully!`;
+
+      setSuccessMsg(msg);
+
+      // If nothing was inserted (all duplicates), keep the preview so the user can see it.
+      const shouldClose = !(typeof result === "string" && /0 ajout|0 added/i.test(result));
+      if (shouldClose) {
+        setTimeout(() => {
+          setParsed(null);
+          setFileName("");
+        }, 2000);
+      }
     } catch (err) {
       console.error(err);
       setError("Import failed: " + (err.message || err));
