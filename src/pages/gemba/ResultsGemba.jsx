@@ -5,12 +5,17 @@ import {
 } from "recharts";
 import { useRealtimeList } from "../../hooks/useFirebaseData";
 import {
-  parseDate, gembaTrend, gembaByLigne, gembaTopFailures, gembaActions,
+  parseDate,
+  currentMonth, prevMonth, lastCompleteWeek, isoWeekKey,
+  gembaTrend, gembaByLigne, gembaTopFailures, gembaActions,
+  filterGembaByMonth, filterGembaByWeek,
+  statsGemba, byLigneGemba,
   countGembaAudits, avgGembaScore,
 } from "../../utils/analytics";
 import Panel from "../../components/dashboard/Panel";
 import StatsRow from "../../components/results/StatsRow";
 import ResultFilters, { Select, DateRange, ResetButton } from "../../components/results/ResultFilters";
+import PeriodComparison from "../../components/results/PeriodComparison";
 import "../../pages/Results.css";
 
 const PIE_COLORS = ["#22c55e", "#ef4444", "#eab308", "#3b82f6", "#a855f7"];
@@ -59,34 +64,35 @@ export default function ResultsGemba() {
     ...(naCount ? [{ name: "N/A", value: naCount }] : []),
   ].filter((x) => x.value > 0);
 
-  const heatmapQuestions = useMemo(() => {
-    const set = new Set();
-    filtered.forEach((r) => set.add((r.question || r.pointM || "—").trim()));
-    return [...set].sort();
-  }, [filtered]);
-
-  const heatmapRows = useMemo(() => {
-    const keys = uap ? [uap] : uaps;
-    return keys.map((k) => ({ key: k, label: k }));
-  }, [uaps, uap]);
-
-  const heatmapMatrix = useMemo(() => {
-    const m = {};
-    heatmapRows.forEach(({ key }) => {
-      m[key] = {};
-      const recs = filtered.filter((r) => r.uap === key);
-      heatmapQuestions.forEach((q) => {
-        const vals = recs.filter((r) => (r.question || r.pointM || "—").trim() === q);
-        if (!vals.length) return;
-        const nok = vals.filter((r) => String(r.reponse).toUpperCase() === "NOK").length;
-        m[key][q] = +((nok / vals.length) * 100).toFixed(1);
-      });
-    });
-    return m;
-  }, [filtered, heatmapRows, heatmapQuestions]);
-
   const reset = () => { setUap(""); setLigne(""); setAuditeur(""); setFrom(""); setTo(""); };
   const hasFilter = uap || ligne || auditeur || from || to;
+
+  // ---------- M-1 comparison ----------
+  const thisM = currentMonth();
+  const lastM = prevMonth(thisM);
+
+  const currMRecs = useMemo(() => filterGembaByMonth(records, thisM), [records, thisM]);
+  const prevMRecs = useMemo(() => filterGembaByMonth(records, lastM), [records, lastM]);
+  const currMStats = useMemo(() => statsGemba(currMRecs), [currMRecs]);
+  const prevMStats = useMemo(() => statsGemba(prevMRecs), [prevMRecs]);
+  const currMByLigne = useMemo(() => byLigneGemba(currMRecs), [currMRecs]);
+  const prevMByLigne = useMemo(() => byLigneGemba(prevMRecs), [prevMRecs]);
+
+  // ---------- S-1 comparison ----------
+  const s1 = useMemo(() => lastCompleteWeek(records, "GEMBA"), [records]);
+  const s2 = useMemo(() => {
+    const [y, w] = s1.split("-W").map(Number);
+    const d = new Date(y, 0, 1 + (w - 1) * 7);
+    d.setDate(d.getDate() - 7);
+    return isoWeekKey(d);
+  }, [s1]);
+
+  const s1Recs = useMemo(() => filterGembaByWeek(records, s1), [records, s1]);
+  const s2Recs = useMemo(() => filterGembaByWeek(records, s2), [records, s2]);
+  const s1Stats = useMemo(() => statsGemba(s1Recs), [s1Recs]);
+  const s2Stats = useMemo(() => statsGemba(s2Recs), [s2Recs]);
+  const s1ByLigne = useMemo(() => byLigneGemba(s1Recs), [s1Recs]);
+  const s2ByLigne = useMemo(() => byLigneGemba(s2Recs), [s2Recs]);
 
   return (
     <div className="results-page">
@@ -176,45 +182,32 @@ export default function ResultsGemba() {
         </Panel>
       </div>
 
-      <Panel title="Heatmap NOK par UAP et question" subtitle="% de NOK — vert = bon, rouge = à corriger">
-        {heatmapRows.length && heatmapQuestions.length ? (
-          <div className="heatmap-wrap">
-            <table className="heatmap">
-              <thead>
-                <tr>
-                  <th className="hm-corner">UAP / Question</th>
-                  {heatmapQuestions.map((q) => (
-                    <th key={q} title={q}>{q.slice(0, 14)}{q.length > 14 ? "…" : ""}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {heatmapRows.map((row) => (
-                  <tr key={row.key}>
-                    <td className="hm-label">{row.label}</td>
-                    {heatmapQuestions.map((q) => {
-                      const p = heatmapMatrix[row.key]?.[q];
-                      const colorFor = (p) => {
-                        if (p === undefined) return "rgba(148,163,184,0.08)";
-                        const t = Math.max(0, Math.min(1, p / 100));
-                        const r = Math.round(255 * t);
-                        const g = Math.round(200 * (1 - t) + 60 * t);
-                        return `rgba(${r}, ${g}, 60, 0.85)`;
-                      };
-                      return (
-                        <td key={q} className="hm-cell" style={{ background: colorFor(p) }}
-                          title={`${row.label} · ${q}: ${p === undefined ? "—" : p.toFixed(0) + "%"}`}>
-                          {p === undefined ? "" : p.toFixed(0)}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : <div className="empty">Aucune donnée.</div>}
-      </Panel>
+      {/* ============ COMPARAISON M-1 + S-1 ============ */}
+      <div className="results-grid-2">
+        <Panel title="Gemba — Comparaison M-1" subtitle="Mois en cours vs mois précédent">
+          <PeriodComparison
+            currentLabel={thisM}
+            previousLabel={lastM}
+            currentStats={currMStats}
+            previousStats={prevMStats}
+            byGroupCurrent={currMByLigne}
+            byGroupPrevious={prevMByLigne}
+            groupLabel="Ligne"
+          />
+        </Panel>
+
+        <Panel title="Gemba — Comparaison S-1" subtitle="Semaine dernière vs avant-dernière">
+          <PeriodComparison
+            currentLabel={s1}
+            previousLabel={s2}
+            currentStats={s1Stats}
+            previousStats={s2Stats}
+            byGroupCurrent={s1ByLigne}
+            byGroupPrevious={s2ByLigne}
+            groupLabel="Ligne"
+          />
+        </Panel>
+      </div>
 
       <Panel title="Actions correctives Gemba" subtitle={`${actions.length} actions ouvertes`}>
         {actions.length ? (
@@ -237,34 +230,6 @@ export default function ResultsGemba() {
             </table>
           </div>
         ) : <div className="empty">Aucune action Gemba.</div>}
-      </Panel>
-
-      <Panel title="Détail des questions" subtitle={`${filtered.length} lignes`}>
-        <div className="scroll-list">
-          <table className="data-table">
-            <thead>
-              <tr><th>Date</th><th>UAP</th><th>Ligne</th><th>Auditeur</th><th>Point M</th><th>Question</th><th>Réponse</th><th>Score</th></tr>
-            </thead>
-            <tbody>
-              {filtered.slice(0, 300).map((r, i) => (
-                <tr key={i}>
-                  <td style={{ whiteSpace: "nowrap" }}>{String(r.date).slice(0, 10)}</td>
-                  <td>{r.uap}</td>
-                  <td>{r.ligne}</td>
-                  <td>{r.auditeur}</td>
-                  <td>{r.pointM}</td>
-                  <td className="wrap">{String(r.question).slice(0, 60)}{String(r.question).length > 60 ? "…" : ""}</td>
-                  <td>
-                    <span className={`pill ${String(r.reponse).toUpperCase() === "OK" ? "pill-OK" : String(r.reponse).toUpperCase() === "NOK" ? "pill-NOK" : "pill-NA"}`}>
-                      {r.reponse}
-                    </span>
-                  </td>
-                  <td>{r.score}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </Panel>
     </div>
   );
