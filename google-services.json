@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "136197671183",
+    "project_id": "kpi-gemba-and-5s",
+    "storage_bucket": "kpi-gemba-and-5s.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:136197671183:android:30a3505409080777cf967a",
+        "android_client_info": {
+          "package_name": "coma.app.kpi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD04_o2OFVgr1jmAxwkMNcDS8m0PABEvVo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
