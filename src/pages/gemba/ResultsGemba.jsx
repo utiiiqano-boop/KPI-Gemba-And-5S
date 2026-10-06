@@ -16,6 +16,7 @@ import Panel from "../../components/dashboard/Panel";
 import StatsRow from "../../components/results/StatsRow";
 import ResultFilters, { Select, DateRange, ResetButton } from "../../components/results/ResultFilters";
 import PeriodComparison from "../../components/results/PeriodComparison";
+import { scoreColor } from "../../utils/colors";
 import "../../pages/Results.css";
 
 const PIE_COLORS = ["#22c55e", "#ef4444", "#eab308", "#3b82f6", "#a855f7"];

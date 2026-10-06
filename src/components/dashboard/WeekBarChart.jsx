@@ -2,14 +2,10 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip,
   CartesianGrid, LabelList, Cell,
 } from "recharts";
+import { scoreColor } from "../../utils/colors";
 import "./WeekBarChart.css";
 
-/**
- * Red bars with % labels on top — for a specific week's per-zone/per-ligne scores.
- * data: [{ name: "L76", score: 81 }, ...]
- */
-export default function WeekBarChart({ data, title, barColor }) {
-  const color = barColor || "#dc2626";
+export default function WeekBarChart({ data, title }) {
   return (
     <div className="wbc-wrap">
       {title && <div className="wbc-title">{title}</div>}
@@ -24,9 +20,17 @@ export default function WeekBarChart({ data, title, barColor }) {
               formatter={(v) => `${v}%`}
             />
             <Bar dataKey="score" radius={[4, 4, 0, 0]}>
-              <LabelList dataKey="score" position="top" fill="#f1f5f9" fontSize={12} fontWeight={700}
-                formatter={(v) => `${v}%`} />
-              {data.map((_, i) => <Cell key={i} fill={color} />)}
+              <LabelList
+                dataKey="score"
+                position="top"
+                fill="#f1f5f9"
+                fontSize={12}
+                fontWeight={700}
+                formatter={(v) => `${v}%`}
+              />
+              {data.map((d, i) => (
+                <Cell key={i} fill={scoreColor(d.score)} />
+              ))}
             </Bar>
           </BarChart>
         </ResponsiveContainer>

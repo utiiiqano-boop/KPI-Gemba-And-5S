@@ -1,33 +1,17 @@
 // =========================================================
-// 5S Excel schema — aligned to "5S APP.xlsx"
-// Le fichier a 2 lignes d'en-tête : ligne 1 = lettres, ligne 2 = vrais noms
-// Les colonnes Points/Feedback varient d'ordre selon la question → on
-// identifie chaque colonne PAR SON NOM dans chaque bloc de 6.
+// 5S Excel schema — "5S APP.xlsx"
+// Lit chaque colonne PAR SON NOM (l'ordre Points/Feedback varie)
 // =========================================================
 
 export const HEADER_ROW_INDEX = 1;
 
 export const META_HEADERS = [
-  "ID",
-  "Heure de début",
-  "Heure de fin",
-  "Adresse de messagerie",
-  "Nom",
-  "Total points",
-  "Quiz feedback",
-  "Heure de la dernière modification",
-  "Date",
-  "Points - Date",
-  "Feedback - Date",
-  "Auditeur",
-  "Points - Auditeur",
-  "Feedback - Auditeur",
-  "Zone/Ligne",
-  "Points - Zone/Ligne",
-  "Feedback - Zone/Ligne",
-  "Pilot de zone",
-  "Points - Pilot de zone",
-  "Feedback - Pilot de zone",
+  "ID", "Heure de début", "Heure de fin", "Adresse de messagerie", "Nom",
+  "Total points", "Quiz feedback", "Heure de la dernière modification",
+  "Date", "Points - Date", "Feedback - Date",
+  "Auditeur", "Points - Auditeur", "Feedback - Auditeur",
+  "Zone/Ligne", "Points - Zone/Ligne", "Feedback - Zone/Ligne",
+  "Pilot de zone", "Points - Pilot de zone", "Feedback - Pilot de zone",
 ];
 
 export const QUESTIONS_5S = [
@@ -95,7 +79,6 @@ export function normalize5SRow(rawRow, headers) {
     const blockHeaders = headers.slice(base, base + BLOCK);
     const blockValues = values.slice(base, base + BLOCK);
 
-    // On lit CHAQUE colonne par son NOM dans le bloc (l'ordre varie selon Q)
     let questionText = "";
     let points = 0;
     let feedback = "";
@@ -123,7 +106,6 @@ export function normalize5SRow(rawRow, headers) {
       } else if (h.startsWith("Feedback - ")) {
         feedback = toStr(v);
       } else {
-        // Colonne sans préfixe = texte de la question
         questionText = toStr(v);
       }
     }

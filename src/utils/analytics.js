@@ -436,14 +436,22 @@ export function buildPlanVsRealised(records, type, weeks = 24, plannedPerWeek = 
   return out;
 }
 
-export function buildUapWeeklySeries(records, type, weeks = 8, groupKey = "uap", entitiesFilter = null) {
+export function buildUapWeeklySeries(records, type, weeksOrList = 8, groupKey = "uap", entitiesFilter = null) {
+  const useExplicitWeeks = Array.isArray(weeksOrList);
+  const weeks = useExplicitWeeks ? weeksOrList.length : weeksOrList;
   const filterSet = entitiesFilter instanceof Set ? entitiesFilter : (entitiesFilter ? new Set(entitiesFilter) : null);
   const counter = type === "5S" ? count5SPerWeek(records) : countGembaPerWeek(records);
   const latest = [...counter.keys()].sort().pop() || weekKeyMinus(0);
   const weekList = [];
-  for (let i = weeks - 1; i >= 0; i--) {
-    const k = weekMinusKey(latest, i);
-    weekList.push({ key: k, label: k.replace(/^\d{4}-/, "") });
+  if (useExplicitWeeks) {
+    weeksOrList.forEach((k) => {
+      weekList.push({ key: k, label: k.replace(/^\d{4}-/, "") });
+    });
+  } else {
+    for (let i = weeks - 1; i >= 0; i--) {
+      const k = weekMinusKey(latest, i);
+      weekList.push({ key: k, label: k.replace(/^\d{4}-/, "") });
+    }
   }
   const groups = new Set();
   records.forEach((r) => {
@@ -589,3 +597,196 @@ export const SERIES_COLORS = [
   "#6366f1", "#ec4899", "#14b8a6", "#f97316", "#84cc16",
   "#eab308", "#3b82f6", "#8b5cf6", "#10b981", "#f43f5e",
 ];
+
+// ---------------------------------------------------------
+// Filtre global par mois / semaine
+// ---------------------------------------------------------
+
+/**
+ * Filtre un tableau de records par période.
+ * type : "all" | "month" | "week"
+ * value : "YYYY-MM" (month) ou "YYYY-Www" (week) ou ""
+ * Pour 5S : utilise get5SDate(r)
+ * Pour Gemba : utilise parseDate(r.date)
+ */
+export function filterByPeriod(records, type, value, kind = "5S") {
+  if (!type || type === "all" || !value) return records;
+
+  return records.filter((r) => {
+    const d = kind === "5S" ? get5SDate(r) : parseDate(r.date);
+    if (!d) return false;
+
+    if (type === "month") {
+      return yyyymm(d) === value;
+    }
+    if (type === "week") {
+      return isoWeekKey(d) === value;
+    }
+    return true;
+  });
+}
+
+/** Liste des mois disponibles (union 5S + Gemba) */
+export function availableAllMonths(records5S, recordsGemba) {
+  const set = new Set();
+  records5S.forEach((r) => {
+    const d = get5SDate(r);
+    if (d) set.add(yyyymm(d));
+  });
+  recordsGemba.forEach((r) => {
+    const d = parseDate(r.date);
+    if (d) set.add(yyyymm(d));
+  });
+  return [...set].sort().reverse();
+}
+
+/** Liste des semaines disponibles (union 5S + Gemba) */
+export function availableAllWeeks(records5S, recordsGemba) {
+  const set = new Set();
+  records5S.forEach((r) => {
+    const d = get5SDate(r);
+    if (d) set.add(isoWeekKey(d));
+  });
+  recordsGemba.forEach((r) => {
+    const d = parseDate(r.date);
+    if (d) set.add(isoWeekKey(d));
+  });
+  return [...set].sort().reverse();
+}
+
+// ---------------------------------------------------------
+// Agrégation par zone/ligne sur une période (sans filtre semaine)
+// ---------------------------------------------------------
+
+export function buildPeriodPerGroupScores(records, type, groupKey = "ligne") {
+  const out = new Map();
+  if (type === "5S") {
+    const sums = {}, counts = {};
+    records.forEach((r) => {
+      const g = groupKey === "zone" ? get5SZone(r) : (r.uap || "—");
+      if (!g || g === "—") return;
+      sums[g] = (sums[g] || 0) + get5SScore(r).percent;
+      counts[g] = (counts[g] || 0) + 1;
+    });
+    Object.keys(sums).forEach((g) => {
+      out.set(g, +(sums[g] / counts[g]).toFixed(1));
+    });
+  } else {
+    const seen = new Set();
+    const sumByGroup = {}, cntByGroup = {};
+    records.forEach((r) => {
+      const g = r.ligne || r.uap || "—";
+      if (!g || g === "—") return;
+      const sig = gembaAuditKey(r);
+      if (seen.has(sig)) return;
+      seen.add(sig);
+      sumByGroup[g] = (sumByGroup[g] || 0) + Number(r.score ?? 0);
+      cntByGroup[g] = (cntByGroup[g] || 0) + 1;
+    });
+    Object.keys(sumByGroup).forEach((g) => {
+      out.set(g, +(sumByGroup[g] / cntByGroup[g]).toFixed(1));
+    });
+  }
+  return [...out.entries()]
+    .map(([name, score]) => ({ name, score }))
+    .sort((a, b) => b.score - a.score);
+}
+
+// ---------------------------------------------------------
+// prevWeekKey : renvoie la clé "YYYY-Www" de la semaine précédente
+// ---------------------------------------------------------
+export function prevWeekKey(weekKey) {
+  if (!weekKey) return "";
+  const [y, w] = weekKey.split("-W").map(Number);
+  if (!y || !w) return "";
+  const simple = new Date(y, 0, 1 + (w - 1) * 7);
+  const day = simple.getDay() || 7;
+  const thursday = new Date(simple);
+  thursday.setDate(simple.getDate() + (4 - day));
+  thursday.setDate(thursday.getDate() - 7);
+  return isoWeekKey(thursday);
+}
+
+// ---------------------------------------------------------
+// Filtre par plage de dates (YYYY-MM-DD)
+// ---------------------------------------------------------
+export function filterByDateRange(records, fromISO, toISO, kind = "5S") {
+  if (!fromISO && !toISO) return records;
+  const from = fromISO ? new Date(fromISO) : null;
+  const to = toISO ? new Date(toISO) : null;
+
+  return records.filter((r) => {
+    const d = kind === "5S" ? get5SDate(r) : parseDate(r.date);
+    if (!d) return false;
+    if (from && d < from) return false;
+    if (to && d > to) return false;
+    return true;
+  });
+}
+
+// ---------------------------------------------------------
+// Série par UAP avec dates individuelles (pour date range)
+// ---------------------------------------------------------
+export function buildUapSeriesByDates(records, type, groupKey = "uap", entitiesFilter = null) {
+  const filterSet = entitiesFilter instanceof Set ? entitiesFilter : (entitiesFilter ? new Set(entitiesFilter) : null);
+
+  // 1. Collecter toutes les dates distinctes (YYYY-MM-DD)
+  const datesSet = new Set();
+  records.forEach((r) => {
+    const d = type === "5S" ? get5SDate(r) : parseDate(r.date);
+    if (d) datesSet.add(d.toISOString().slice(0, 10));
+  });
+  const dates = [...datesSet].sort();
+
+  // 2. Collecter les groupes (UAP)
+  const groups = new Set();
+  records.forEach((r) => {
+    const g = type === "5S"
+      ? (groupKey === "uap" ? get5SUap(r) : get5SZone(r))
+      : (groupKey === "uap" ? (normalizeUapGemba(r.uap) || r.uap || "—") : (r.ligne || r.uap || "—"));
+    if (!g || g === "—" || g === "Autre") return;
+    if (filterSet && !filterSet.has(g)) return;
+    groups.add(g);
+  });
+
+  // 3. Construire la matrice dates × UAP
+  const data = dates.map((dateKey) => {
+    const row = { label: dateKey.slice(5) }; // "MM-DD"
+    groups.forEach((g) => { row[g] = null; });
+
+    if (type === "5S") {
+      const sums = {}, counts = {};
+      records.forEach((r) => {
+        const d = get5SDate(r);
+        if (!d || d.toISOString().slice(0, 10) !== dateKey) return;
+        const g = groupKey === "uap" ? get5SUap(r) : get5SZone(r);
+        if (!g || g === "—" || g === "Autre") return;
+        if (filterSet && !filterSet.has(g)) return;
+        sums[g] = (sums[g] || 0) + get5SScore(r).percent;
+        counts[g] = (counts[g] || 0) + 1;
+      });
+      Object.keys(sums).forEach((g) => { row[g] = +(sums[g] / counts[g]).toFixed(1); });
+    } else {
+      const seen = new Set();
+      const sumByGroup = {}, cntByGroup = {};
+      records.forEach((r) => {
+        const d = parseDate(r.date);
+        if (!d || d.toISOString().slice(0, 10) !== dateKey) return;
+        const g = groupKey === "uap"
+          ? (normalizeUapGemba(r.uap) || r.uap || "—")
+          : (r.ligne || r.uap || "—");
+        if (!g || g === "—") return;
+        if (filterSet && !filterSet.has(g)) return;
+        const sig = gembaAuditKey(r);
+        if (seen.has(sig)) return;
+        seen.add(sig);
+        sumByGroup[g] = (sumByGroup[g] || 0) + Number(r.score ?? 0);
+        cntByGroup[g] = (cntByGroup[g] || 0) + 1;
+      });
+      Object.keys(sumByGroup).forEach((g) => { row[g] = +(sumByGroup[g] / cntByGroup[g]).toFixed(1); });
+    }
+    return row;
+  });
+
+  return { data, keys: [...groups] };
+}

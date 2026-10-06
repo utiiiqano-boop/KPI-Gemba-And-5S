@@ -18,6 +18,7 @@ import Heatmap from "../../components/results/Heatmap";
 import StatsRow from "../../components/results/StatsRow";
 import ResultFilters, { Select, DateRange, ResetButton } from "../../components/results/ResultFilters";
 import PeriodComparison from "../../components/results/PeriodComparison";
+import { scoreColor } from "../../utils/colors";
 import "../../pages/Results.css";
 
 export default function Results5S() {

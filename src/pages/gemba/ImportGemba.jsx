@@ -42,7 +42,7 @@ export default function ImportGemba() {
         const r = await importGembaRows(rows, parsed);
         return `Import terminé : ${r.inserted} ajoutés, ${r.skipped} déjà existants (sur ${r.total}).`;
       }}
-      headerRowIndex={HEADER_ROW_INDEX}
+      headerRowIndex="auto"
     />
   );
 }

@@ -1,39 +1,53 @@
 .topbar {
-  height: 76px;
-  background: rgba(15, 23, 42, 0.7);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: 88px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 28px;
-  position: sticky;
-  top: 0;
-  z-index: 5;
-}
-.topbar-left h1 {
-  font-size: 20px;
-  font-weight: 700;
-  color: #f1f5f9;
-  margin: 0;
-  letter-spacing: -0.01em;
-}
-.topbar-left p {
-  font-size: 12.5px;
-  color: #94a3b8;
-  margin: 2px 0 0;
-}
-.topbar-date {
-  font-size: 13px;
-  color: #94a3b8;
-  background: rgba(148, 163, 184, 0.08);
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  padding: 0 40px;
+  background: linear-gradient(180deg, rgba(10, 15, 28, 0.92), rgba(10, 15, 28, 0.75));
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border-bottom: 1px solid var(--border-1);
 }
 
-@media (max-width: 640px) {
-  .topbar { padding: 0 16px; height: 68px; }
+.topbar-left h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.025em;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.topbar-left p {
+  font-size: 13px;
+  color: var(--text-3);
+  margin: 3px 0 0;
+  font-weight: 400;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topbar-date {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  background: var(--surface-1);
+  padding: 9px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border-1);
+  text-transform: capitalize;
+}
+
+@media (max-width: 900px) {
+  .topbar { padding: 0 20px; height: 72px; }
   .topbar-date { display: none; }
-  .topbar-left h1 { font-size: 17px; }
+  .topbar-left h1 { font-size: 18px; }
 }

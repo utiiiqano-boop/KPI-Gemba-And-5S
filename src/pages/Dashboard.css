@@ -1,45 +1,93 @@
 .dashboard {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  max-width: 1400px;
-  margin: 0 auto;
+  gap: 24px;
 }
 
+/* ============ KPI Grid ============ */
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
 }
 
+/* ============ Chart grids ============ */
 .chart-grid-1 {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 20px;
+  gap: 24px;
 }
-
 .chart-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 24px;
 }
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .chart-grid-2 { grid-template-columns: 1fr; }
 }
 
-.month-select {
-  background: rgba(15, 23, 42, 0.9);
-  color: #cbd5e1;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 12.5px;
-  cursor: pointer;
+/* ============ Section headers ============ */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 36px 0 4px;
+  padding: 0 4px;
 }
-.month-select:hover { border-color: rgba(139, 92, 246, 0.5); }
+.section-header:first-of-type { margin-top: 8px; }
 
+.section-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 16px;
+  border-radius: 10px;
+  color: white;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.section-title {
+  color: var(--text-1);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.section-header::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.4), transparent);
+}
+
+/* ============ Toggle buttons ============ */
+.toggle-btn {
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--text-2);
+  border: 1px solid var(--border-2);
+  border-radius: 9px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.toggle-btn:hover {
+  background: rgba(148, 163, 184, 0.15);
+  color: white;
+}
+.toggle-btn.active {
+  background: linear-gradient(135deg, var(--brand-1), var(--brand-3));
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 6px 16px var(--brand-glow);
+}
+
+/* ============ Scroll list ============ */
 .scroll-list {
-  max-height: 340px;
+  max-height: 400px;
   overflow-y: auto;
 }
 .scroll-list::-webkit-scrollbar { width: 6px; }
@@ -48,58 +96,93 @@
   border-radius: 6px;
 }
 
-.toggle-btn {
-  background: rgba(148, 163, 184, 0.08);
-  color: #cbd5e1;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 8px;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 600;
+/* ============ Month selector ============ */
+.month-select {
+  background: var(--surface-2);
+  color: var(--text-2);
+  border: 1px solid var(--border-2);
+  border-radius: 9px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  outline: none;
+  transition: all var(--transition);
 }
-.toggle-btn:hover {
-  background: rgba(148, 163, 184, 0.18);
-  color: white;
-}
-.toggle-btn.active {
-  background: linear-gradient(135deg, #6366f1, #a855f7);
-  color: white;
-  border-color: transparent;
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+.month-select:hover { border-color: var(--brand-1); }
+.month-select:focus { border-color: var(--brand-1); box-shadow: 0 0 0 3px var(--brand-glow); }
+
+/* ============ Empty state ============ */
+.empty {
+  text-align: center;
+  color: var(--text-4);
+  padding: 48px 16px;
+  font-size: 13px;
+  font-style: italic;
 }
 
-/* ============ Section headers ============ */
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin: 30px 0 10px;
-  padding: 0 4px;
+/* ============ Stat boxes ============ */
+.stat-box {
+  background: var(--surface-2);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  transition: border-color var(--transition);
 }
-.section-header:first-of-type {
-  margin-top: 10px;
+.stat-box:hover { border-color: var(--border-2); }
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 6px;
+  line-height: 1;
 }
-.section-badge {
+.stat-label {
+  font-size: 11px;
+  color: var(--text-4);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+
+/* ============ Data tables ============ */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.data-table th {
+  text-align: left;
+  color: var(--text-3);
+  font-weight: 700;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-2);
+  white-space: nowrap;
+}
+.data-table td {
+  padding: 10px 12px;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--border-1);
+  vertical-align: top;
+}
+.data-table tr:hover td { background: rgba(99, 102, 241, 0.04); }
+.data-table td.wrap { white-space: normal; max-width: 340px; }
+
+/* ============ Pills ============ */
+.pill {
   display: inline-block;
-  padding: 6px 16px;
-  border-radius: 8px;
-  color: white;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
   font-weight: 700;
-  font-size: 13px;
-  letter-spacing: 0.05em;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  letter-spacing: 0.02em;
 }
-.section-title {
-  color: #f1f5f9;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-.section-header::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(139, 92, 246, 0.4), transparent);
-}
+.pill-1S { background: rgba(239, 68, 68, 0.18); color: #fca5a5; }
+.pill-2S { background: rgba(249, 115, 22, 0.18); color: #fdba74; }
+.pill-3S { background: rgba(234, 179, 8, 0.18); color: #fde047; }
+.pill-4S { background: rgba(34, 197, 94, 0.18); color: #86efac; }
+.pill-5S { background: rgba(59, 130, 246, 0.18); color: #93c5fd; }

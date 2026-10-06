@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useRealtimeList } from "../../hooks/useFirebaseData";
 import { parseDate, groupGembaAudits } from "../../utils/analytics";
 import ResultsTable from "../../components/results/ResultsTable";
+import { scoreColor } from "../../utils/colors";
 import ResultFilters, { Select, DateRange, ResetButton } from "../../components/results/ResultFilters";
 import "../../pages/Results.css";
 
@@ -119,12 +120,7 @@ export default function TableGemba() {
   };
 
   const scoreCell = (r) => (
-    <span
-      style={{
-        color: r.score >= 90 ? "#86efac" : r.score >= 75 ? "#fde047" : "#fca5a5",
-        fontWeight: 600,
-      }}
-    >
+    <span style={{ color: scoreColor(r.score), fontWeight: 600 }}>
       {Number(r.score).toFixed(1)}
     </span>
   );

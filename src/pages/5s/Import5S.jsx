@@ -16,12 +16,22 @@ const EXPECTED_COLUMNS = QUESTIONS_5S.map((q) => ({
 async function import5SRows(rows, parsed) {
   const headers = parsed.headers;
 
+  console.log("=== 5S IMPORT DEBUG ===");
+  console.log("Headers total:", headers.length);
+  console.log("Headers [0..20]:", headers.slice(0, 20));
+  console.log("Headers [20..32] (bloc Q1+Q2):", headers.slice(20, 32));
+
+  if (rows[0]) {
+    const firstRow = rows[0];
+    console.log("Row 0 keys sample [0..20]:", Object.keys(firstRow).slice(0, 20));
+    console.log("Row 0 Q1 block values:", headers.slice(20, 26).map(h => [h, firstRow[h]]));
+  }
+
   const result = await importWithDedupe({
     rows,
     path: "5s_audits",
     sigFn: (row) => {
       const normalized = normalize5SRow(row, headers);
-      // attach the signature so the transform can reuse it
       row.__normalized = normalized;
       return sig5S(row, normalized);
     },
@@ -37,7 +47,6 @@ async function import5SRows(rows, parsed) {
       };
     },
   });
-
   return result;
 }
 
@@ -45,15 +54,14 @@ export default function Import5S() {
   return (
     <ExcelImporter
       title="Import 5S Audit Data"
-      description="Upload '5S APP.xlsx'. Duplicates are skipped automatically (same ID + Date + Zone + Auditeur = same audit). You can re-upload the same file safely."
+      description="Upload '5S APP.xlsx'. Duplicates are skipped automatically."
       columns={EXPECTED_COLUMNS}
       templateName="5s-audit-template.xlsx"
       onImport={async (rows, parsed) => {
         const r = await import5SRows(rows, parsed);
-        // show a friendly message with skipped count
         return `Import terminé : ${r.inserted} ajoutés, ${r.skipped} déjà existants (sur ${r.total}).`;
       }}
-      headerRowIndex={HEADER_ROW_INDEX}
+      headerRowIndex="auto"
     />
   );
 }

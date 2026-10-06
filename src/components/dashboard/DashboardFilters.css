@@ -1,31 +1,32 @@
-.result-filters {
+.db-filters {
   display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
   align-items: flex-end;
+  gap: 18px;
   padding: 20px 24px;
   background: var(--surface-1);
   backdrop-filter: blur(12px);
   border: 1px solid var(--border-1);
   border-radius: var(--radius-lg);
-  margin-bottom: 24px;
+  flex-wrap: wrap;
+  transition: border-color var(--transition);
 }
+.db-filters:hover { border-color: var(--border-2); }
 
-.filter-field {
+.db-filter-field {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-width: 160px;
+  min-width: 180px;
 }
-.filter-field label {
+.db-filter-field label {
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-4);
   font-weight: 700;
 }
-.filter-field select,
-.filter-field input {
+.db-filter-field select,
+.db-filter-field input[type="date"] {
   background: var(--surface-2);
   color: var(--text-2);
   border: 1px solid var(--border-2);
@@ -33,35 +34,18 @@
   padding: 10px 14px;
   font-size: 13px;
   font-weight: 500;
+  cursor: pointer;
   outline: none;
   transition: all var(--transition);
   font-family: inherit;
 }
-.filter-field select:focus,
-.filter-field input:focus {
+.db-filter-field select:hover,
+.db-filter-field input[type="date"]:hover {
+  border-color: var(--border-3);
+}
+.db-filter-field select:focus,
+.db-filter-field input[type="date"]:focus {
   border-color: var(--brand-1);
   box-shadow: 0 0 0 3px var(--brand-glow);
   background: var(--bg-2);
-}
-
-.filter-reset {
-  background: rgba(239, 68, 68, 0.12);
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  border-radius: 10px;
-  padding: 10px 18px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--transition);
-  height: 41px;
-  font-family: inherit;
-}
-.filter-reset:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.22);
-  transform: translateY(-1px);
-}
-.filter-reset:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }

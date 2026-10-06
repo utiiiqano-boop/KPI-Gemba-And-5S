@@ -1,20 +1,22 @@
 .smt-grid {
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 @media (max-width: 900px) {
   .smt-grid { grid-template-columns: 1fr !important; }
 }
 
 .smt-card {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  border-radius: 12px;
-  padding: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius);
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
+  transition: border-color var(--transition);
 }
+.smt-card:hover { border-color: var(--border-2); }
 
 .smt-head {
   display: flex;
@@ -25,14 +27,15 @@
 .smt-title {
   font-size: 15px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
 }
 .smt-trend-badge {
   font-size: 11px;
   font-weight: 700;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border: 1px solid;
-  border-radius: 20px;
+  border-radius: 999px;
   white-space: nowrap;
   background: rgba(15, 23, 42, 0.7);
 }
@@ -41,16 +44,17 @@
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 8px;
-  font-size: 11px;
-  color: #94a3b8;
-  padding-top: 6px;
-  border-top: 1px solid rgba(148, 163, 184, 0.08);
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  padding-top: 10px;
+  border-top: 1px solid var(--border-1);
+  font-weight: 500;
 }
 .smt-foot-item {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
 }
 .smt-dot-blue,
 .smt-dot-green,

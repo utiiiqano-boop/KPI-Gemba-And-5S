@@ -2,21 +2,9 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ReferenceLine, LabelList,
 } from "recharts";
+import { scoreColor } from "../../utils/colors";
 import "./SmallMultiplesTrend.css";
 
-/**
- * Grid of mini-charts — one per entity.
- * Each chart shows ALL audits (full history) + linear trend line + slope badge.
- *
- * seriesData: [{
- *   name,
- *   points: [{ label, value, date }],
- *   average,
- *   slopePerStep,
- *   trend: "up"|"down"|"stable",
- *   regression: { slope, intercept }
- * }]
- */
 export default function SmallMultiplesTrend({ seriesData, columns = 2 }) {
   if (!seriesData?.length) return <div className="empty">Aucune donnée.</div>;
 
@@ -32,7 +20,6 @@ export default function SmallMultiplesTrend({ seriesData, columns = 2 }) {
             ? "—"
             : `${s.slopePerStep > 0 ? "+" : ""}${s.slopePerStep.toFixed(1)} pts/audit`;
 
-        // Build trend regression values for each point index
         const dataWithTrend = s.points.map((p, i) => ({
           ...p,
           trendValue: s.regression
@@ -109,16 +96,47 @@ export default function SmallMultiplesTrend({ seriesData, columns = 2 }) {
                     name="Score"
                     stroke="#2563eb"
                     strokeWidth={2.5}
-                    dot={{ r: 4, fill: "#2563eb", strokeWidth: 2, stroke: "#0b1020" }}
-                    activeDot={{ r: 6 }}
+                    dot={(props) => {
+                      const { cx, cy, payload, index } = props;
+                      const c = scoreColor(payload.value);
+                      return (
+                        <circle
+                          key={`dot-${index}`}
+                          cx={cx}
+                          cy={cy}
+                          r={5}
+                          fill={c}
+                          stroke="#0b1020"
+                          strokeWidth={2}
+                        />
+                      );
+                    }}
+                    activeDot={{ r: 7 }}
                     isAnimationActive={false}
-                    connectNulls                  >
+                    connectNulls
+                  >
                     <LabelList
                       dataKey="value"
                       position="top"
                       offset={8}
                       formatter={(v) => (v === null || v === undefined ? "" : `${v}%`)}
-                      style={{ fill: "#93c5fd", fontSize: 10, fontWeight: 700 }}
+                      content={(props) => {
+                        const { x, y, value } = props;
+                        if (value === null || value === undefined) return null;
+                        const c = scoreColor(value);
+                        return (
+                          <text
+                            x={x}
+                            y={y - 6}
+                            fill={c}
+                            fontSize={10}
+                            fontWeight={700}
+                            textAnchor="middle"
+                          >
+                            {value}%
+                          </text>
+                        );
+                      }}
                     />
                   </Line>
                 </LineChart>
@@ -131,11 +149,15 @@ export default function SmallMultiplesTrend({ seriesData, columns = 2 }) {
               </span>
               {s.average !== null && (
                 <span className="smt-foot-item">
-                  <span className="smt-dot-green" /> Moy: {s.average}%
+                  <span
+                    className="smt-dot-trend"
+                    style={{ background: scoreColor(s.average) }}
+                  />
+                  Moy: <strong style={{ color: scoreColor(s.average) }}>{s.average}%</strong>
                 </span>
               )}
               <span className="smt-foot-item">
-                <span className="smt-dot-trend" style={{ background: trendColor }} />{" "}
+                <span className="smt-dot-trend" style={{ background: trendColor }} />
                 {s.trend === "up" ? "Hausse" : s.trend === "down" ? "Baisse" : "Stable"}
               </span>
             </div>

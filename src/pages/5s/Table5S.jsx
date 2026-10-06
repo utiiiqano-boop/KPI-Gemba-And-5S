@@ -6,6 +6,7 @@ import {
   get5SAnswers, get5SScore,
 } from "../../utils/analytics";
 import ResultsTable from "../../components/results/ResultsTable";
+import { scoreColor } from "../../utils/colors";
 import ResultFilters, { Select, DateRange, ResetButton } from "../../components/results/ResultFilters";
 import "../../pages/Results.css";
 
@@ -115,9 +116,9 @@ export default function Table5S() {
     { key: "score", label: "Score %", align: "center", width: 90,
       sortValue: (r) => r.score,
       render: (r) => (
-        <strong style={{
-          color: r.score >= 90 ? "#86efac" : r.score >= 75 ? "#fde047" : "#fca5a5",
-        }}>{Number(r.score).toFixed(1)}%</strong>
+        <strong style={{ color: scoreColor(r.score) }}>
+          {Number(r.score).toFixed(1)}%
+        </strong>
       ) },
   ];
 

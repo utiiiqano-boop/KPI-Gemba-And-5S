@@ -1,12 +1,24 @@
 import * as XLSX from "xlsx";
 
 /**
- * Read an Excel/CSV file.
- * headerRowIndex : index 0-based de la ligne d'en-tête
- *   0 → ligne 1 = en-tête (Gemba)
- *   1 → ligne 2 = en-tête (5S, ligne 1 = lettres A B C)
+ * Détecte automatiquement la ligne d'en-tête réelle.
+ * Renvoie l'index de la 1ère ligne qui ressemble à un en-tête
+ * (au moins 3 cellules non vides ET dont au moins 1 contient "ID" ou "Date" ou "Total").
  */
-export function readExcelFile(file, headerRowIndex = 0) {
+function autoDetectHeaderRow(aoa) {
+  for (let i = 0; i < Math.min(aoa.length, 10); i++) {
+    const row = aoa[i];
+    if (!Array.isArray(row)) continue;
+    const nonEmpty = row.filter((c) => c !== "" && c !== null && c !== undefined).length;
+    const asStr = row.map((c) => String(c || "")).join("|");
+    if (nonEmpty >= 3 && /ID|Date|Total|Auditeur|Heure/i.test(asStr)) {
+      return i;
+    }
+  }
+  return 0;
+}
+
+export function readExcelFile(file, headerRowIndex = "auto") {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -28,7 +40,15 @@ export function readExcelFile(file, headerRowIndex = 0) {
           return;
         }
 
-        const rawHeaders = aoa[headerRowIndex] || [];
+        // Auto-détection si headerRowIndex = "auto"
+        const realIndex = headerRowIndex === "auto"
+          ? autoDetectHeaderRow(aoa)
+          : headerRowIndex;
+
+        console.log("[excelParser] Detected header row index:", realIndex);
+        console.log("[excelParser] Sample of that row:", aoa[realIndex]?.slice(0, 25));
+
+        const rawHeaders = aoa[realIndex] || [];
 
         const seen = {};
         const headers = rawHeaders.map((h, idx) => {
@@ -42,7 +62,7 @@ export function readExcelFile(file, headerRowIndex = 0) {
           return `${key}_${seen[key]}`;
         });
 
-        const dataRows = aoa.slice(headerRowIndex + 1);
+        const dataRows = aoa.slice(realIndex + 1);
         const rows = dataRows
           .filter((r) => Array.isArray(r) && r.some((v) => v !== "" && v !== null && v !== undefined))
           .map((r) => {
@@ -53,12 +73,7 @@ export function readExcelFile(file, headerRowIndex = 0) {
             return obj;
           });
 
-        resolve({
-          sheetName,
-          sheetNames: workbook.SheetNames,
-          rows,
-          headers,
-        });
+        resolve({ sheetName, sheetNames: workbook.SheetNames, rows, headers, headerRowIndex: realIndex });
       } catch (err) {
         console.error("readExcelFile error:", err);
         reject(err);
@@ -69,33 +84,19 @@ export function readExcelFile(file, headerRowIndex = 0) {
   });
 }
 
-/**
- * Convertit un nombre de série Excel en date ISO (UTC, pas de décalage).
- * Corrige le bug : "2026-10-04" au lieu de "2026-10-05".
- */
 function normalizeCell(v) {
   if (v === null || v === undefined || v === "") return "";
-
-  if (v instanceof Date && !isNaN(v)) {
-    return toISODateUTC(v);
-  }
-
+  if (v instanceof Date && !isNaN(v)) return toISODateUTC(v);
   if (typeof v === "number") {
-    // Plage 1990-2100
     if (v > 32874 && v < 73415 && Number.isInteger(v)) {
       const ms = (v - 25569) * 86400 * 1000;
       const d = new Date(ms);
       if (!isNaN(d)) return toISODateUTC(d);
     }
   }
-
   return v;
 }
 
-/**
- * Format ISO en UTC pour éviter tout décalage de fuseau horaire.
- * C'est LE fix qui règle le décalage d'un jour (2026-10-04 → 2026-10-05).
- */
 function toISODateUTC(d) {
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
