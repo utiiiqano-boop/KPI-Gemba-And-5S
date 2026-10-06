@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { useRealtimeList } from "../../hooks/useFirebaseData";
 import {
+  
   PILLARS, yyyymm, available5SMonths,
   get5SDate, get5SZone, get5SScore, get5SAuditor, get5SZoneLeader, get5STotal, get5SAnswers,
   fiveSRadarByMonth, fiveSTrend, fiveSByZone, fiveSTopFailures, fiveSActions,
@@ -18,6 +19,8 @@ import Heatmap from "../../components/results/Heatmap";
 import StatsRow from "../../components/results/StatsRow";
 import ResultFilters, { Select, DateRange, ResetButton } from "../../components/results/ResultFilters";
 import PeriodComparison from "../../components/results/PeriodComparison";
+import ExportButton from "../../components/report/ExportButton";
+import Period5SReport from "../../components/report/Period5SReport";
 import { scoreColor } from "../../utils/colors";
 import "../../pages/Results.css";
 
@@ -110,6 +113,19 @@ export default function Results5S() {
         <DateRange key={`${from}|${to}`} from={from} to={to} onFrom={setFrom} onTo={setTo} />
         <ResetButton onClick={reset} disabled={!hasFilter} />
       </ResultFilters>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <ExportButton
+          fileName={`rapport-5S-${activeMonth || "global"}.pdf`}
+          label="Rapport PDF 5S"
+          renderContent={() => (
+            <Period5SReport
+              records={filtered}
+              periodLabel={activeMonth || "Toutes périodes"}
+            />
+          )}
+        />
+      </div>
 
       <StatsRow
         items={[

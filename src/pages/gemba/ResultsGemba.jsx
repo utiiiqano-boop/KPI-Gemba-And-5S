@@ -16,6 +16,8 @@ import Panel from "../../components/dashboard/Panel";
 import StatsRow from "../../components/results/StatsRow";
 import ResultFilters, { Select, DateRange, ResetButton } from "../../components/results/ResultFilters";
 import PeriodComparison from "../../components/results/PeriodComparison";
+import ExportButton from "../../components/report/ExportButton";
+import PeriodGembaReport from "../../components/report/PeriodGembaReport";
 import { scoreColor } from "../../utils/colors";
 import "../../pages/Results.css";
 
@@ -104,6 +106,19 @@ export default function ResultsGemba() {
         <DateRange key={`${from}|${to}`} from={from} to={to} onFrom={setFrom} onTo={setTo} />
         <ResetButton onClick={reset} disabled={!hasFilter} />
       </ResultFilters>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <ExportButton
+          fileName={`rapport-Gemba-global.pdf`}
+          label="Rapport PDF Gemba"
+          renderContent={() => (
+            <PeriodGembaReport
+              records={filtered}
+              periodLabel="Toutes périodes"
+            />
+          )}
+        />
+      </div>
 
       <StatsRow
         items={[

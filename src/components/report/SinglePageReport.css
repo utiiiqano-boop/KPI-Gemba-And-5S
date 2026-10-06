@@ -1,0 +1,347 @@
+/* =========================================================
+   Rapport 1 page A4 — Design pro avec COULEURS SOLIDES
+   (force html2canvas à rendre du texte net)
+   ========================================================= */
+.sp-report,
+.sp-report * {
+  -webkit-font-smoothing: auto !important;
+  -moz-osx-font-smoothing: auto !important;
+  text-rendering: geometricPrecision !important;
+  opacity: 1 !important;
+  font-feature-settings: normal !important;
+  color: #0f172a;
+}
+
+.sp-report {
+  width: 794px;
+  height: 1123px;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  font-family: "Helvetica Neue", Arial, sans-serif !important;
+  font-weight: 500;
+  padding: 32px 36px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Header */
+.sp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #0f172a;
+  margin-bottom: 16px;
+}
+.sp-logo { display: flex; align-items: center; gap: 10px; }
+.sp-logo-mark {
+  width: 36px; height: 36px;
+  background: #6366f1 !important;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff !important;
+  font-weight: 900;
+  font-size: 15px;
+  letter-spacing: -0.03em;
+}
+.sp-brand {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a !important;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.sp-brand-sub {
+  font-size: 9.5px;
+  color: #475569 !important;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-top: 1px;
+}
+.sp-meta {
+  text-align: right;
+  font-size: 9.5px;
+  color: #475569 !important;
+  line-height: 1.5;
+}
+.sp-meta strong {
+  color: #0f172a !important;
+  font-weight: 800;
+  font-size: 10.5px;
+}
+
+/* Title row */
+.sp-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  gap: 12px;
+}
+.sp-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a !important;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+.sp-title-sub {
+  font-size: 11px;
+  color: #475569 !important;
+  margin-top: 3px;
+  font-weight: 600;
+}
+.sp-score-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff !important;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.sp-score-badge.red { background: #dc2626 !important; }
+.sp-score-badge.orange { background: #d97706 !important; }
+.sp-score-badge.green { background: #16a34a !important; }
+
+/* KPIs row */
+.sp-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.sp-kpi {
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 8px;
+  text-align: center;
+}
+.sp-kpi-label {
+  font-size: 8.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #475569 !important;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.sp-kpi-value {
+  font-size: 18px;
+  font-weight: 900;
+  color: #0f172a !important;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+/* Info grid */
+.sp-info {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 12px;
+  padding: 10px 14px;
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+.sp-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10.5px;
+  padding: 2px 0;
+}
+.sp-info-label { color: #475569 !important; font-weight: 700; }
+.sp-info-value { color: #0f172a !important; font-weight: 800; }
+
+/* Section title */
+.sp-section-title {
+  font-size: 10.5px;
+  font-weight: 900;
+  color: #0f172a !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding-bottom: 4px;
+  border-bottom: 2px solid #0f172a;
+  margin-bottom: 8px;
+  margin-top: 10px;
+}
+
+/* Pillars */
+.sp-pillars {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.sp-pillar {
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px 6px;
+  text-align: center;
+}
+.sp-pillar-label {
+  font-size: 9px;
+  font-weight: 900;
+  color: #334155 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+.sp-pillar-score {
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.sp-pillar-sub {
+  font-size: 8px;
+  color: #64748b !important;
+  margin-top: 3px;
+  font-weight: 600;
+}
+
+/* Questions — 2 columns */
+.sp-questions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+}
+.sp-q {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  line-height: 1.3;
+}
+.sp-q.pass { background: #dcfce7 !important; }
+.sp-q.fail { background: #fee2e2 !important; }
+.sp-q.na { background: #f1f5f9 !important; }
+.sp-q-num {
+  font-weight: 900;
+  color: #0f172a !important;
+  flex-shrink: 0;
+  font-size: 9px;
+  min-width: 18px;
+}
+.sp-q-text {
+  flex: 1;
+  color: #0f172a !important;
+  font-weight: 600;
+}
+.sp-q-pill {
+  flex-shrink: 0;
+  font-weight: 900;
+  font-size: 8.5px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.03em;
+}
+.sp-q-pill.pass { background: #16a34a !important; color: #ffffff !important; }
+.sp-q-pill.fail { background: #dc2626 !important; color: #ffffff !important; }
+.sp-q-pill.na { background: #94a3b8 !important; color: #ffffff !important; }
+
+/* Détail par question — table */
+.sp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9px;
+}
+.sp-table th {
+  background: #0f172a !important;
+  color: #ffffff !important;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 5px 6px;
+  text-align: left;
+  font-size: 8px;
+  border: 1px solid #0f172a;
+}
+.sp-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid #cbd5e1;
+  color: #0f172a !important;
+  vertical-align: top;
+  font-weight: 600;
+}
+.sp-table td strong { color: #0f172a !important; font-weight: 800; }
+.sp-table .num { text-align: center; }
+.sp-table .wrap { white-space: normal; }
+.sp-table .pill {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 8px;
+  font-weight: 900;
+}
+.sp-table .pill.pass { background: #16a34a !important; color: #ffffff !important; }
+.sp-table .pill.fail { background: #dc2626 !important; color: #ffffff !important; }
+.sp-table .pill.na { background: #94a3b8 !important; color: #ffffff !important; }
+
+/* Notes / Actions */
+.sp-notes {
+  background: #fef3c7 !important;
+  border-left: 3px solid #d97706;
+  padding: 6px 10px;
+  border-radius: 4px;
+  margin-top: 6px;
+  font-size: 9.5px;
+  color: #0f172a !important;
+  line-height: 1.4;
+  font-weight: 600;
+}
+.sp-notes strong { font-weight: 900; color: #0f172a !important; }
+
+/* Signatures */
+.sp-signatures {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 2px solid #0f172a;
+}
+.sp-sig { text-align: center; }
+.sp-sig-line {
+  border-top: 1px solid #475569;
+  margin-bottom: 4px;
+}
+.sp-sig-label {
+  font-size: 8.5px;
+  color: #475569 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 800;
+}
+.sp-sig-name {
+  font-size: 9.5px;
+  color: #0f172a !important;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+/* Footer */
+.sp-footer {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #cbd5e1;
+  display: flex;
+  justify-content: space-between;
+  font-size: 8px;
+  color: #475569 !important;
+  font-weight: 700;
+}

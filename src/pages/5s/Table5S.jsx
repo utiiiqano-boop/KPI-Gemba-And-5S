@@ -6,6 +6,8 @@ import {
   get5SAnswers, get5SScore,
 } from "../../utils/analytics";
 import ResultsTable from "../../components/results/ResultsTable";
+import ExportButton from "../../components/report/ExportButton";
+import SinglePage5SReport from "../../components/report/SinglePage5SReport";
 import { scoreColor } from "../../utils/colors";
 import ResultFilters, { Select, DateRange, ResetButton } from "../../components/results/ResultFilters";
 import "../../pages/Results.css";
@@ -120,6 +122,19 @@ export default function Table5S() {
           {Number(r.score).toFixed(1)}%
         </strong>
       ) },
+    { key: "_actions", label: "Rapport", align: "center", width: 100,
+      render: (r) => {
+        const original = records.find((x) => x._id === r._id);
+        if (!original) return null;
+        return (
+          <ExportButton
+            fileName={`audit-5S-${original?.meta?.zone || "zone"}-${original?.meta?.date || ""}.pdf`}
+            label="PDF"
+            renderContent={() => <SinglePage5SReport record={original} />}
+          />
+        );
+      }
+    },
   ];
 
   const questionColumns = Array.from({ length: 26 }, (_, i) => ({

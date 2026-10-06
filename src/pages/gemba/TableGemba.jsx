@@ -2,6 +2,8 @@ import { useMemo, useState, useEffect } from "react";
 import { useRealtimeList } from "../../hooks/useFirebaseData";
 import { parseDate, groupGembaAudits } from "../../utils/analytics";
 import ResultsTable from "../../components/results/ResultsTable";
+import ExportButton from "../../components/report/ExportButton";
+import SinglePageGembaReport from "../../components/report/SinglePageGembaReport";
 import { scoreColor } from "../../utils/colors";
 import ResultFilters, { Select, DateRange, ResetButton } from "../../components/results/ResultFilters";
 import "../../pages/Results.css";
@@ -60,6 +62,10 @@ export default function TableGemba() {
       return true;
     });
   }, [records, ligne, uap, auditeur, from, to]);
+
+  const auditRowsFull = useMemo(() => {
+    return groupGembaAudits(filtered);
+  }, [filtered]);
 
   const auditRows = useMemo(() => {
     const audits = groupGembaAudits(filtered);
@@ -136,6 +142,19 @@ export default function TableGemba() {
       render: (r) => <span style={{ color: r.nok > 0 ? "#fca5a5" : "#64748b", fontWeight: 600 }}>{r.nok}</span> },
     { key: "na", label: "N/A", align: "center", width: 60, sortValue: (r) => r.na },
     { key: "score", label: "Score %", align: "center", width: 90, sortValue: (r) => r.score, render: scoreCell },
+    { key: "_actions", label: "Rapport", align: "center", width: 100,
+      render: (r) => {
+        const original = auditRowsFull.find((x) => x.key === r._id);
+        if (!original) return null;
+        return (
+          <ExportButton
+            fileName={`audit-Gemba-${original.ligne || "ligne"}-${original.date || ""}.pdf`}
+            label="PDF"
+            renderContent={() => <SinglePageGembaReport audit={original} />}
+          />
+        );
+      }
+    },
   ];
 
   const questionColumns = [
