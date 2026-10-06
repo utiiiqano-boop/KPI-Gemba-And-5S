@@ -122,7 +122,7 @@ export default function AuditGembaReport({ audit, generatedAt = new Date() }) {
         <div className="report-signatures">
           <div className="report-sig-box">Auditeur<br />{questions[0]?.auditeur || ""}</div>
           <div className="report-sig-box">Pilot de ligne</div>
-          <div className="report-sig-box">Responsable UAP</div>
+          <div className="report-sig-box">Responsable Amélioration</div>
         </div>
       </div>
 

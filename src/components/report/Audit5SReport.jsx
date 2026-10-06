@@ -1,8 +1,18 @@
 import "./ReportTemplate.css";
+import { parseDate } from "../../utils/analytics";
 
 export default function Audit5SReport({ record, generatedAt = new Date() }) {
   if (!record) return null;
   const meta = record.meta || {};
+
+  const parsedDate =
+    parseDate(meta.date) ||
+    parseDate(meta.startTime) ||
+    parseDate(record?._raw?.Date) ||
+    parseDate(record?._raw?.["Heure de début"]);
+  const dateLabel = parsedDate
+    ? parsedDate.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })
+    : "";
   const scores = record.scores || {};
   const answers = record.answers || [];
   const scoreClass = scores.percent <= 80 ? "red" : scores.percent <= 85 ? "orange" : "green";
@@ -25,7 +35,7 @@ export default function Audit5SReport({ record, generatedAt = new Date() }) {
       </div>
 
       <div className="report-title">Audit 5S — {meta.zone || "Zone"}</div>
-      <div className="report-subtitle">{meta.date || ""}</div>
+      <div className="report-subtitle">{dateLabel}</div>
       <div className={`report-score-badge ${scoreClass}`}>Score : {scores.percent || 0}%</div>
 
       <div className="report-section">
@@ -121,7 +131,7 @@ export default function Audit5SReport({ record, generatedAt = new Date() }) {
         <div className="report-signatures">
           <div className="report-sig-box">Auditeur<br />{meta.auditor || ""}</div>
           <div className="report-sig-box">Pilot de zone<br />{meta.zoneLeader || ""}</div>
-          <div className="report-sig-box">Responsable Qualité</div>
+          <div className="report-sig-box">Responsable Amélioration</div>
         </div>
       </div>
 

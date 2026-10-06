@@ -1,8 +1,19 @@
 import "./SinglePageReport.css";
+import { parseDate } from "../../utils/analytics";
 
 export default function SinglePage5SReport({ record, generatedAt = new Date() }) {
   if (!record) return null;
   const meta = record.meta || {};
+
+  // ✅ Convertit le serial Excel en date lisible
+  const parsedDate =
+    parseDate(meta.date) ||
+    parseDate(meta.startTime) ||
+    parseDate(record?._raw?.Date) ||
+    parseDate(record?._raw?.["Heure de début"]);
+  const dateLabel = parsedDate
+    ? parsedDate.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })
+    : "";
   const scores = record.scores || {};
   const answers = record.answers || [];
   const pillarScores = record.pillarScores || {};
@@ -31,7 +42,7 @@ export default function SinglePage5SReport({ record, generatedAt = new Date() })
       <div className="sp-title-row">
         <div>
           <div className="sp-title">Audit 5S — {meta.zone || "Zone"}</div>
-          <div className="sp-title-sub">{meta.date || ""}</div>
+          <div className="sp-title-sub">{dateLabel}</div>
         </div>
         <div className={`sp-score-badge ${scoreClass}`}>{score}%</div>
       </div>
@@ -137,7 +148,7 @@ export default function SinglePage5SReport({ record, generatedAt = new Date() })
         </div>
         <div className="sp-sig">
           <div className="sp-sig-line" />
-          <div className="sp-sig-label">Resp. Qualité</div>
+          <div className="sp-sig-label">Resp. Amélioration</div>
           <div className="sp-sig-name">&nbsp;</div>
         </div>
       </div>

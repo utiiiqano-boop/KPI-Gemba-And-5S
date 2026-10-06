@@ -155,7 +155,7 @@ export default function SinglePageGembaReport({ audit, generatedAt = new Date() 
         </div>
         <div className="sp-sig">
           <div className="sp-sig-line" />
-          <div className="sp-sig-label">Resp. UAP</div>
+          <div className="sp-sig-label">Resp. Amélioration</div>
           <div className="sp-sig-name">&nbsp;</div>
         </div>
       </div>
