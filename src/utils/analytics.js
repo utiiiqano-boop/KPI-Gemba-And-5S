@@ -145,17 +145,29 @@ export function fiveSTopFailures(records, limit = 10) {
 export function fiveSActions(records) {
   const out = [];
   records.forEach((r) => {
+    // Force la conversion : gère serial Excel ET ISO string
+    const d = get5SDate(r);
+    const dateStr = d
+      ? d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })
+      : "—";
+
     get5SAnswers(r).forEach((a) => {
       if (a.action && String(a.action).trim()) {
         out.push({
-          date: r?.meta?.date || r?._raw?.Date || "",
-          zone: get5SZone(r), auditor: get5SAuditor(r),
-          pillar: a.pillar, qIndex: a.index, short: a.short, action: a.action,
+          date: dateStr,
+          dateObj: d,
+          dateTs: d ? d.getTime() : 0,
+          zone: get5SZone(r),
+          auditor: get5SAuditor(r),
+          pillar: a.pillar,
+          qIndex: a.index,
+          short: a.short,
+          action: a.action,
         });
       }
     });
   });
-  return out.sort((a, b) => (parseDate(b.date)?.getTime() ?? 0) - (parseDate(a.date)?.getTime() ?? 0));
+  return out.sort((a, b) => b.dateTs - a.dateTs);
 }
 
 export function available5SMonths(records) {
@@ -789,4 +801,101 @@ export function buildUapSeriesByDates(records, type, groupKey = "uap", entitiesF
   });
 
   return { data, keys: [...groups] };
+}
+
+// ---------------------------------------------------------
+// Top 3 / Bottom 3 par zone (5S) ou ligne (Gemba)
+// ---------------------------------------------------------
+export function topBottom5S(records, groupKey = "zone", n = 3) {
+  const map = new Map();
+  records.forEach((r) => {
+    const name = groupKey === "zone" ? get5SZone(r) : (r.uap || "—");
+    if (!name || name === "—") return;
+    if (!map.has(name)) map.set(name, { name, sum: 0, count: 0 });
+    const cur = map.get(name);
+    cur.sum += get5SScore(r).percent;
+    cur.count += 1;
+  });
+  const arr = [...map.values()]
+    .map((x) => ({ name: x.name, avg: +(x.sum / x.count).toFixed(1), count: x.count }))
+    .sort((a, b) => b.avg - a.avg);
+  return {
+    top: arr.slice(0, n),
+    bottom: [...arr].reverse().slice(0, n),
+  };
+}
+
+export function topBottomGemba(records, n = 3) {
+  const seen = new Set();
+  const map = new Map();
+  records.forEach((r) => {
+    const name = r.ligne || r.uap || "—";
+    if (!name || name === "—") return;
+    if (!map.has(name)) map.set(name, { name, sum: 0, count: 0 });
+    const sig = gembaAuditKey(r);
+    if (seen.has(sig)) return;
+    seen.add(sig);
+    const cur = map.get(name);
+    cur.sum += Number(r.score ?? 0);
+    cur.count += 1;
+  });
+  const arr = [...map.values()]
+    .map((x) => ({ name: x.name, avg: +(x.sum / x.count).toFixed(1), count: x.count }))
+    .sort((a, b) => b.avg - a.avg);
+  return {
+    top: arr.slice(0, n),
+    bottom: [...arr].reverse().slice(0, n),
+  };
+}
+
+// ---------------------------------------------------------
+// Top 3 questions 5S à prioriser (le plus de NOK)
+// ---------------------------------------------------------
+export function topPriorities5S(records, n = 3) {
+  const map = new Map();
+  records.forEach((r) => {
+    get5SAnswers(r).forEach((a) => {
+      if (!map.has(a.index)) {
+        map.set(a.index, {
+          index: a.index,
+          pillar: a.pillar,
+          title: a.short || a.question || `Q${a.index}`,
+          subtitle: `Pilier ${a.pillar} · Q${a.index}`,
+          nok: 0,
+          total: 0,
+        });
+      }
+      const cur = map.get(a.index);
+      cur.total += 1;
+      if (Number(a.points) === 0) cur.nok += 1;
+    });
+  });
+  return [...map.values()]
+    .filter((x) => x.nok > 0)
+    .map((x) => ({ ...x, count: x.nok, rate: x.total ? +((x.nok / x.total) * 100).toFixed(0) : 0 }))
+    .sort((a, b) => b.nok - a.nok)
+    .slice(0, n);
+}
+
+// ---------------------------------------------------------
+// Top 3 catégories 5M Gemba à prioriser (le plus de NOK)
+// ---------------------------------------------------------
+export function topPrioritiesGemba(records, n = 3) {
+  const map = new Map();
+  records.forEach((r) => {
+    const m = normalize5M(r.pointM || r.question);
+    if (!m || m === "—") return;
+    if (!map.has(m)) {
+      map.set(m, { m, title: m, subtitle: "Catégorie 5M", nok: 0, total: 0 });
+    }
+    const cur = map.get(m);
+    cur.total += 1;
+    const rep = String(r.reponse || "").toUpperCase();
+    if (rep === "NOK") cur.nok += 1;
+  });
+  return [...map.values()]
+    .filter((x) => x.nok > 0)
+    .map((x) => ({ ...x, count: x.nok, rate: x.total ? +((x.nok / x.total) * 100).toFixed(0) : 0 }))
+    .sort((a, b) => b.nok - a.nok)
+    .slice(0, n);
 }

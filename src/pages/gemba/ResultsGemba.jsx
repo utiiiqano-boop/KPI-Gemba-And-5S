@@ -10,12 +10,15 @@ import {
   gembaTrend, gembaByLigne, gembaTopFailures, gembaActions,
   filterGembaByMonth, filterGembaByWeek,
   statsGemba, byLigneGemba,
-  countGembaAudits, avgGembaScore,
+  countGembaAudits, avgGembaScore, topBottomGemba, topPrioritiesGemba,
 } from "../../utils/analytics";
 import Panel from "../../components/dashboard/Panel";
 import StatsRow from "../../components/results/StatsRow";
-import ResultFilters, { Select, DateRange, ResetButton } from "../../components/results/ResultFilters";
+import ResultFilters, { Select, ResetButton } from "../../components/results/ResultFilters";
 import PeriodComparison from "../../components/results/PeriodComparison";
+import ActionDateFilter from "../../components/results/ActionDateFilter";
+import TopBottomPanel from "../../components/results/TopBottomPanel";
+import PrioritiesPanel from "../../components/results/PrioritiesPanel";
 import ExportButton from "../../components/report/ExportButton";
 import PeriodGembaReport from "../../components/report/PeriodGembaReport";
 import { scoreColor } from "../../utils/colors";
@@ -29,8 +32,8 @@ export default function ResultsGemba() {
   const [uap, setUap] = useState("");
   const [ligne, setLigne] = useState("");
   const [auditeur, setAuditeur] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const uaps = useMemo(() => [...new Set(records.map((r) => r.uap).filter(Boolean))].sort(), [records]);
   const lignes = useMemo(() => [...new Set(records.map((r) => r.ligne).filter(Boolean))].sort(), [records]);
@@ -42,16 +45,17 @@ export default function ResultsGemba() {
       if (uap && r.uap !== uap) return false;
       if (ligne && r.ligne !== ligne) return false;
       if (auditeur && r.auditeur !== auditeur) return false;
-      if (from && d && d < new Date(from)) return false;
-      if (to && d && d > new Date(to)) return false;
+      if (dateFrom) { if (!d || d < new Date(dateFrom)) return false; }
+      if (dateTo) { if (!d || d > new Date(dateTo + "T23:59:59")) return false; }
       return true;
     });
-  }, [records, uap, ligne, auditeur, from, to]);
+  }, [records, uap, ligne, auditeur, dateFrom, dateTo]);
 
   const trend = useMemo(() => gembaTrend(filtered), [filtered]);
   const byLigne = useMemo(() => gembaByLigne(filtered), [filtered]);
   const topFailures = useMemo(() => gembaTopFailures(filtered, 12), [filtered]);
   const actions = useMemo(() => gembaActions(filtered), [filtered]);
+  const [actionsFiltered, setActionsFiltered] = useState(actions);
 
   const totalAudits = useMemo(() => countGembaAudits(filtered), [filtered]);
   const avgScore = useMemo(() => avgGembaScore(filtered), [filtered]);
@@ -67,8 +71,12 @@ export default function ResultsGemba() {
     ...(naCount ? [{ name: "N/A", value: naCount }] : []),
   ].filter((x) => x.value > 0);
 
-  const reset = () => { setUap(""); setLigne(""); setAuditeur(""); setFrom(""); setTo(""); };
-  const hasFilter = uap || ligne || auditeur || from || to;
+  // ============ Top/Bottom 3 + Priorités ============
+  const tbGemba = useMemo(() => topBottomGemba(filtered, 3), [filtered]);
+  const prioritiesGemba = useMemo(() => topPrioritiesGemba(filtered, 3), [filtered]);
+
+  const reset = () => { setUap(""); setLigne(""); setAuditeur(""); setDateFrom(""); setDateTo(""); };
+  const hasFilter = uap || ligne || auditeur || dateFrom || dateTo;
 
   // ---------- M-1 comparison ----------
   const thisM = currentMonth();
@@ -103,7 +111,22 @@ export default function ResultsGemba() {
         <Select label="UAP" value={uap} onChange={setUap} options={uaps} />
         <Select label="Ligne" value={ligne} onChange={setLigne} options={lignes} />
         <Select label="Auditeur" value={auditeur} onChange={setAuditeur} options={auditeurs} />
-        <DateRange key={`${from}|${to}`} from={from} to={to} onFrom={setFrom} onTo={setTo} />
+        <div className="filter-field">
+          <label>Du</label>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+          />
+        </div>
+        <div className="filter-field">
+          <label>Au</label>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+          />
+        </div>
         <ResetButton onClick={reset} disabled={!hasFilter} />
       </ResultFilters>
 
@@ -225,13 +248,43 @@ export default function ResultsGemba() {
         </Panel>
       </div>
 
-      <Panel title="Actions correctives Gemba" subtitle={`${actions.length} actions ouvertes`}>
-        {actions.length ? (
+            {/* ============ TOP/BOTTOM 3 LIGNES ============ */}
+      <Panel
+        title="🏆 Top 3 & Bottom 3 lignes"
+        subtitle={`${tbGemba.top.length + tbGemba.bottom.length} lignes classées par score`}
+      >
+        <TopBottomPanel
+          top={tbGemba.top}
+          bottom={tbGemba.bottom}
+          label="lignes"
+          suffix="%"
+        />
+      </Panel>
+
+      {/* ============ TOP 3 M À PRIORISER ============ */}
+      <Panel
+        title="🎯 Top 3 catégories 5M à prioriser"
+        subtitle="Les 3 M avec le plus de NOK"
+      >
+        <PrioritiesPanel
+          items={prioritiesGemba}
+          label="priorités"
+          showCount={true}
+        />
+      </Panel>
+
+      <Panel title="Actions correctives Gemba" subtitle={`${actionsFiltered.length} / ${actions.length} actions`}>
+        <ActionDateFilter
+          actions={actions}
+          onFiltered={setActionsFiltered}
+          label="actions Gemba"
+        />
+        {actionsFiltered.length ? (
           <div className="scroll-list">
             <table className="data-table">
               <thead><tr><th>Date</th><th>UAP</th><th>Ligne</th><th>Auditeur</th><th>Pilote</th><th>Échéance</th><th>Action</th></tr></thead>
               <tbody>
-                {actions.map((a, i) => (
+                {actionsFiltered.map((a, i) => (
                   <tr key={i}>
                     <td style={{ whiteSpace: "nowrap" }}>{String(a.date).slice(0, 10)}</td>
                     <td>{a.uap}</td>

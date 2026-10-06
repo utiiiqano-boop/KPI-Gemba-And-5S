@@ -12,13 +12,16 @@ import {
   fiveSRadarByMonth, fiveSTrend, fiveSByZone, fiveSTopFailures, fiveSActions,
   currentMonth, prevMonth, lastCompleteWeek, isoWeekKey,
   filter5SByMonth, filter5SByWeek,
-  stats5S, byZone5S,
+  stats5S, byZone5S, topBottom5S, topPriorities5S,
 } from "../../utils/analytics";
 import Panel from "../../components/dashboard/Panel";
 import Heatmap from "../../components/results/Heatmap";
 import StatsRow from "../../components/results/StatsRow";
 import ResultFilters, { Select, DateRange, ResetButton } from "../../components/results/ResultFilters";
 import PeriodComparison from "../../components/results/PeriodComparison";
+import ActionDateFilter from "../../components/results/ActionDateFilter";
+import TopBottomPanel from "../../components/results/TopBottomPanel";
+import PrioritiesPanel from "../../components/results/PrioritiesPanel";
 import ExportButton from "../../components/report/ExportButton";
 import Period5SReport from "../../components/report/Period5SReport";
 import { scoreColor } from "../../utils/colors";
@@ -32,6 +35,8 @@ export default function Results5S() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [month, setMonth] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const zones = useMemo(
     () => [...new Set(records.map(get5SZone).filter((z) => z && z !== "—"))].sort(),
@@ -53,11 +58,15 @@ export default function Results5S() {
       if (month) {
         if (!d || yyyymm(d) !== month) return false;
       }
-      if (from) { if (!d || d < new Date(from)) return false; }
-      if (to) { if (!d || d > new Date(to)) return false; }
+      if (dateFrom) {
+        if (!d || d < new Date(dateFrom)) return false;
+      }
+      if (dateTo) {
+        if (!d || d > new Date(dateTo + "T23:59:59")) return false;
+      }
       return true;
     });
-  }, [records, zone, auditor, month, from, to]);
+  }, [records, zone, auditor, month, dateFrom, dateTo]);
 
   const activeMonth = month || months[0] || "";
 
@@ -66,6 +75,7 @@ export default function Results5S() {
   const byZone = useMemo(() => fiveSByZone(filtered), [filtered]);
   const topFailures = useMemo(() => fiveSTopFailures(filtered, 10), [filtered]);
   const actions = useMemo(() => fiveSActions(filtered), [filtered]);
+  const [actionsFiltered, setActionsFiltered] = useState(actions);
 
   const avg5S = filtered.length
     ? +(filtered.reduce((a, r) => a + get5SScore(r).percent, 0) / filtered.length).toFixed(1)
@@ -74,8 +84,44 @@ export default function Results5S() {
   const bestPillar = radarData.reduce((b, r) => (r.average > (b?.average ?? -1) ? r : b), null);
   const worstPillar = radarData.reduce((b, r) => (r.average < (b?.average ?? 999) ? r : b), null);
 
-  const reset = () => { setZone(""); setAuditor(""); setFrom(""); setTo(""); setMonth(""); };
-  const hasFilter = zone || auditor || from || to || month;
+  // ============ Heatmap : zones × questions ============
+  const heatmapData = useMemo(() => {
+    // Row keys = zones distinctes (ou filtrées)
+    const rowKeys = [...new Set(filtered.map(get5SZone).filter((z) => z && z !== "—"))].sort();
+
+    const matrix = {};
+    rowKeys.forEach((zone) => {
+      matrix[zone] = {};
+      const recs = filtered.filter((r) => get5SZone(r) === zone);
+      for (let i = 1; i <= 26; i++) {
+        let nok = 0;
+        let total = 0;
+        recs.forEach((r) => {
+          const a = (r?.answers || []).find((x) => x.index === i);
+          if (!a) return;
+          // On ignore les N/A
+          if (a.status === "N/A" || a.points === "" || a.points === undefined) return;
+          total++;
+          if (Number(a.points) === 0) nok++;
+        });
+        if (total > 0) {
+          matrix[zone][i] = +((nok / total) * 100).toFixed(1);
+        }
+      }
+    });
+
+    return {
+      rows: rowKeys.map((z) => ({ key: z, label: z })),
+      matrix,
+    };
+  }, [filtered]);
+
+  // ============ Top/Bottom 3 + Priorités ============
+  const tb5S = useMemo(() => topBottom5S(filtered, "zone", 3), [filtered]);
+  const priorities5S = useMemo(() => topPriorities5S(filtered, 3), [filtered]);
+
+  const reset = () => { setZone(""); setAuditor(""); setDateFrom(""); setDateTo(""); setMonth(""); };
+  const hasFilter = zone || auditor || dateFrom || dateTo || month;
 
   // ---------- M-1 comparison ----------
   const thisM = currentMonth();
@@ -110,7 +156,22 @@ export default function Results5S() {
         <Select label="Zone / Ligne" value={zone} onChange={setZone} options={zones} />
         <Select label="Auditeur" value={auditor} onChange={setAuditor} options={auditors} />
         <Select label="Mois" value={month} onChange={setMonth} options={months} />
-        <DateRange key={`${from}|${to}`} from={from} to={to} onFrom={setFrom} onTo={setTo} />
+        <div className="filter-field">
+          <label>Du</label>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+          />
+        </div>
+        <div className="filter-field">
+          <label>Au</label>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+          />
+        </div>
         <ResetButton onClick={reset} disabled={!hasFilter} />
       </ResultFilters>
 
@@ -232,19 +293,49 @@ export default function Results5S() {
         </Panel>
       </div>
 
-      <Panel title="Heatmap NOK par zone et question" subtitle="% de NOK — vert = bon, rouge = à corriger">
-        <Heatmap rows={[]} matrix={{}} />
+      {/* ============ TOP/BOTTOM 3 ZONES ============ */}
+      <Panel
+        title="🏆 Top 3 & Bottom 3 zones"
+        subtitle={`${tb5S.top.length + tb5S.bottom.length} zones classées par score`}
+      >
+        <TopBottomPanel
+          top={tb5S.top}
+          bottom={tb5S.bottom}
+          label="zones"
+          suffix="%"
+        />
       </Panel>
 
-      <Panel title="Toutes les actions 5S" subtitle={`${actions.length} actions identifiées`}>
-        {actions.length ? (
+      {/* ============ TOP 3 PRIORITÉS ============ */}
+      <Panel
+        title="🎯 Top 3 actions à prioriser"
+        subtitle="Les 3 questions avec le plus de NOK"
+      >
+        <PrioritiesPanel
+          items={priorities5S}
+          label="priorités"
+          showCount={true}
+        />
+      </Panel>
+
+      <Panel title="Heatmap NOK par zone et question" subtitle="% de NOK — vert = bon, rouge = à corriger">
+        <Heatmap rows={heatmapData.rows} matrix={heatmapData.matrix} />
+      </Panel>
+
+      <Panel title="Toutes les actions 5S" subtitle={`${actionsFiltered.length} / ${actions.length} actions`}>
+        <ActionDateFilter
+          actions={actions}
+          onFiltered={setActionsFiltered}
+          label="actions 5S"
+        />
+        {actionsFiltered.length ? (
           <div className="scroll-list">
             <table className="data-table">
               <thead><tr><th>Date</th><th>Zone</th><th>Auditeur</th><th>Pilier</th><th>Q#</th><th>Action</th></tr></thead>
               <tbody>
-                {actions.map((a, i) => (
+                {actionsFiltered.map((a, i) => (
                   <tr key={i}>
-                    <td style={{ whiteSpace: "nowrap" }}>{String(a.date).slice(0, 10)}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>{a.date || "—"}</td>
                     <td>{a.zone}</td>
                     <td>{a.auditor}</td>
                     <td><span className={`pill pill-${a.pillar}`}>{a.pillar}</span></td>
