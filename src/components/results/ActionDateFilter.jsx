@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import "./ActionDateFilter.css";
 
 /**
@@ -11,7 +11,6 @@ export default function ActionDateFilter({ actions, onFiltered, label = "actions
 
   const parseActionDate = (d) => {
     if (!d) return null;
-    // Format "YYYY-MM-DD" ou "DD/MM/YYYY" ou Date object
     if (d instanceof Date) return isNaN(d) ? null : d;
     const s = String(d).trim();
     let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -25,15 +24,15 @@ export default function ActionDateFilter({ actions, onFiltered, label = "actions
   const filtered = useMemo(() => {
     return actions.filter((a) => {
       const d = parseActionDate(a.date);
-      if (!d) return !from && !to; // si pas de date et pas de filtre → garder
+      if (!d) return !from && !to;
       if (from && d < new Date(from)) return false;
       if (to && d > new Date(to + "T23:59:59")) return false;
       return true;
     });
   }, [actions, from, to]);
 
-  // Notifier le parent
-  useMemo(() => {
+  // ✅ Fix : utiliser useEffect au lieu de useMemo pour notifier le parent
+  useEffect(() => {
     if (onFiltered) onFiltered(filtered);
   }, [filtered, onFiltered]);
 
