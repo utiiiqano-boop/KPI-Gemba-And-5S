@@ -1,0 +1,54 @@
+.cc-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 32px;
+  height: 32px;
+  pointer-events: none;
+  z-index: 99999;
+  will-change: transform;
+}
+.cc-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(168, 85, 247, 0.6);
+  transition: transform 0.15s ease;
+}
+.cc-dot {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 5px;
+  height: 5px;
+  transform: translate(-50%, -50%);
+  background: #c4b5fd;
+  border-radius: 50%;
+  box-shadow: 0 0 12px #a855f7, 0 0 24px #a855f7;
+}
+.cc-cursor.cursor-click .cc-ring {
+  transform: scale(1.6);
+  border-color: #06b6d4;
+}
+.cc-cursor.cursor-click .cc-dot {
+  background: #67e8f9;
+  box-shadow: 0 0 16px #06b6d4;
+}
+
+.cc-trail-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99998;
+}
+.cc-trail {
+  position: absolute;
+  top: 0; left: 0;
+  border-radius: 50%;
+  will-change: transform, opacity;
+  mix-blend-mode: screen;
+}
+
+/* Hide default cursor on desktop */
+@media (hover: hover) and (pointer: fine) {
+  * { cursor: none !important; }
+}
