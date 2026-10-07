@@ -2,11 +2,11 @@
   position: relative;
   width: 260px;
   min-height: 100vh;
-  background: linear-gradient(180deg, #0a0f1c 0%, #05080f 100%);
+  background: #0a0f1c;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--border-1);
-  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  border-right: 1px solid rgba(148, 163, 184, 0.1);
+  transition: width 0.2s ease;
   flex-shrink: 0;
   z-index: 30;
 }
@@ -18,31 +18,40 @@
   align-items: center;
   gap: 14px;
   padding: 24px 20px 22px;
-  border-bottom: 1px solid var(--border-1);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
 }
+
 .brand-mark {
-  width: 40px; height: 40px;
-  border-radius: 11px;
-  background: linear-gradient(135deg, var(--brand-1), var(--brand-3));
-  display: flex; align-items: center; justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5), inset 0 1px 0 rgba(255,255,255,0.2);
+  box-shadow: 0 4px 14px rgba(217, 4, 41, 0.3);
+  overflow: hidden;
 }
-.brand-mark svg { width: 20px; height: 20px; color: white; }
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 6px;
+}
+
 .brand-text { overflow: hidden; }
 .brand-title {
   font-size: 14.5px;
-  font-weight: 700;
-  color: var(--text-1);
+  font-weight: 800;
+  color: #f1f5f9;
   line-height: 1.2;
-  letter-spacing: -0.01em;
   white-space: nowrap;
 }
 .brand-sub {
   font-size: 11px;
-  color: var(--text-4);
+  color: #94a3b8;
   font-weight: 500;
-  letter-spacing: 0.03em;
   white-space: nowrap;
   margin-top: 1px;
 }
@@ -55,22 +64,21 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: var(--bg-2);
-  border: 1px solid var(--border-3);
-  color: var(--text-2);
+  background: #0f172a;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10;
-  transition: all var(--transition);
+  transition: background 0.15s;
 }
 .sidebar-toggle:hover {
-  background: var(--bg-3);
+  background: #d90429;
   color: white;
-  transform: scale(1.1);
 }
-.sidebar-toggle svg { width: 12px; height: 12px; }
+.sidebar-toggle svg { width: 12px; height: 12px; transition: transform 0.2s; }
 .sidebar.collapsed .sidebar-toggle svg { transform: rotate(180deg); }
 
 /* Nav */
@@ -80,15 +88,15 @@
   padding: 20px 12px;
 }
 .sidebar-nav::-webkit-scrollbar { width: 4px; }
-.sidebar-nav::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.2); border-radius: 4px; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.2); border-radius: 4px; }
 
 .nav-group { margin-bottom: 22px; }
 .nav-section {
   font-size: 10.5px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-4);
+  color: #64748b;
   padding: 0 14px 10px;
 }
 
@@ -96,25 +104,25 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 11px 14px;
   border-radius: 10px;
-  color: var(--text-2);
+  color: #cbd5e1;
   text-decoration: none;
   font-size: 13.5px;
   font-weight: 500;
   margin-bottom: 3px;
-  transition: all var(--transition);
+  transition: background 0.15s, color 0.15s;
   position: relative;
   white-space: nowrap;
 }
 .nav-item:hover {
-  background: rgba(148, 163, 184, 0.07);
-  color: var(--text-1);
+  background: rgba(148, 163, 184, 0.08);
+  color: #f1f5f9;
 }
 .nav-item.active {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(168, 85, 247, 0.14));
+  background: linear-gradient(135deg, rgba(217, 4, 41, 0.2), rgba(139, 92, 246, 0.12));
   color: white;
-  box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.35), 0 4px 16px rgba(99,102,241,0.15);
+  box-shadow: inset 0 0 0 1px rgba(217, 4, 41, 0.4);
 }
 .nav-item.active::before {
   content: "";
@@ -123,14 +131,14 @@
   top: 22%;
   bottom: 22%;
   width: 3px;
-  background: linear-gradient(180deg, var(--brand-1), var(--brand-3));
+  background: #d90429;
   border-radius: 3px;
-  box-shadow: 0 0 12px var(--brand-glow);
 }
 
 .nav-icon {
   display: flex;
-  width: 20px; height: 20px;
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -144,75 +152,43 @@
 
 /* User */
 .sidebar-user {
-  border-top: 1px solid var(--border-1);
+  border-top: 1px solid rgba(148, 163, 184, 0.08);
   padding: 16px;
   display: flex;
   align-items: center;
   gap: 12px;
 }
 .user-avatar {
-  width: 38px; height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--info), var(--brand-1));
-  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #d90429, #ff3b3b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: white;
-  font-weight: 700;
+  font-weight: 800;
   font-size: 14px;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.35);
 }
 .user-info { overflow: hidden; flex: 1; min-width: 0; }
 .user-email {
   font-size: 12.5px;
-  color: var(--text-2);
+  color: #cbd5e1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-weight: 500;
 }
 .logout-link {
   background: none;
   border: none;
-  color: var(--danger);
+  color: #f87171;
   font-size: 11.5px;
   padding: 0;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
   margin-top: 3px;
-  transition: color var(--transition);
 }
 .logout-link:hover { color: #fca5a5; }
 
 .sidebar.collapsed .sidebar-user { justify-content: center; padding: 16px 8px; }
-
-/* Override : logo WKW dans le brand-mark */
-.brand-mark .logo-wrap-img,
-.brand-mark img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-/* Le brand-mark devient une boîte avec fond dégradé */
-.brand-mark {
-  background: linear-gradient(135deg, #6366f1, #a855f7) !important;
-  padding: 4px;
-  overflow: hidden;
-}
-
-.brand-mark img {
-  filter: brightness(0) invert(1);
-}
-
-/* Override : logo WKW dans le brand-mark — fond BLANC */
-.brand-mark {
-  background: #ffffff !important;
-  padding: 5px !important;
-  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.3), inset 0 0 0 1px rgba(255,255,255,0.1) !important;
-}
-.brand-mark img {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: contain !important;
-  filter: none !important;
-}

@@ -7,16 +7,16 @@ export default function CustomCursor() {
   return (
     <>
       <div className="cc-trail-container">
-        {Array.from({ length: 8 }).map((_, i) => (
+        {Array.from({ length: 3 }).map((_, i) => (
           <div
             key={i}
             ref={(el) => (trailRefs.current[i] = el)}
             className="cc-trail"
             style={{
-              width: 12 - i * 1.2,
-              height: 12 - i * 1.2,
-              background: `hsl(${280 - i * 15}, 80%, ${70 - i * 3}%)`,
-              boxShadow: `0 0 12px hsl(${280 - i * 15}, 90%, 70%)`,
+              width: 10 - i * 2,
+              height: 10 - i * 2,
+              background: `hsl(${280 - i * 25}, 80%, 70%)`,
+              boxShadow: `0 0 10px hsl(${280 - i * 25}, 90%, 70%)`,
             }}
           />
         ))}

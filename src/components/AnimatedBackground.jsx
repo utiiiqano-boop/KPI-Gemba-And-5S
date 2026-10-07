@@ -23,7 +23,7 @@ export default function AnimatedBackground() {
     }
 
     function initParticles() {
-      const count = Math.min(90, Math.floor((canvas.width * canvas.height) / 18000));
+      const count = Math.min(45, Math.floor((canvas.width * canvas.height) / 35000));
       particles = [];
       for (let i = 0; i < count; i++) {
         particles.push({
@@ -37,7 +37,14 @@ export default function AnimatedBackground() {
       }
     }
 
-    function draw() {
+    let lastDraw = 0;
+    function draw(time) {
+      if (time - lastDraw < 33) {  // 30 FPS
+        animId = requestAnimationFrame(draw);
+        return;
+      }
+      lastDraw = time;
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Déplace + dessine les particules
@@ -65,8 +72,8 @@ export default function AnimatedBackground() {
           const dx = particles[i].x - particles[j].x;
           const dy = particles[i].y - particles[j].y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 130) {
-            const alpha = (1 - dist / 130) * 0.35;
+          if (dist < 110) {
+            const alpha = (1 - dist / 110) * 0.35;
             ctx.beginPath();
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
@@ -82,8 +89,8 @@ export default function AnimatedBackground() {
         const dx = p.x - mouse.x;
         const dy = p.y - mouse.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 180) {
-          const alpha = (1 - dist / 180) * 0.5;
+        if (dist < 150) {
+          const alpha = (1 - dist / 150) * 0.5;
           ctx.beginPath();
           ctx.moveTo(p.x, p.y);
           ctx.lineTo(mouse.x, mouse.y);
@@ -156,14 +163,6 @@ export default function AnimatedBackground() {
         <div className="ab-orb ab-orb-1" />
         <div className="ab-orb ab-orb-2" />
         <div className="ab-orb ab-orb-3" />
-      </div>
-
-      {/* Couche 7 : rayons diagonaux */}
-      <div className="ab-rays">
-        <div className="ab-ray ab-ray-1" />
-        <div className="ab-ray ab-ray-2" />
-        <div className="ab-ray ab-ray-3" />
-        <div className="ab-ray ab-ray-4" />
       </div>
 
       {/* Couche 8 : canvas constellation */}

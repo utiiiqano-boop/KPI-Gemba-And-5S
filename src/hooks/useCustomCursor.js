@@ -5,52 +5,63 @@ export function useCustomCursor() {
   const trailRefs = useRef([]);
   const posRef = useRef({ x: 0, y: 0 });
   const trailPositions = useRef(
-    Array.from({ length: 8 }, () => ({ x: 0, y: 0 }))
+    Array.from({ length: 3 }, () => ({ x: 0, y: 0 }))
   );
 
   useEffect(() => {
+    // Skip mobile / reduced-motion
+    if (window.matchMedia("(hover: none)").matches) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
     const cursor = cursorRef.current;
     if (!cursor) return;
 
     let animationId;
+    let needsUpdate = false;
 
     function handleMouseMove(e) {
-      posRef.current = { x: e.clientX, y: e.clientY };
+      posRef.current.x = e.clientX;
+      posRef.current.y = e.clientY;
+      needsUpdate = true;
     }
 
     function handleMouseDown() {
-      if (cursor) cursor.classList.add("cursor-click");
+      cursor?.classList.add("cursor-click");
     }
     function handleMouseUp() {
-      if (cursor) cursor.classList.remove("cursor-click");
+      cursor?.classList.remove("cursor-click");
     }
 
     function animate() {
-      // Cursor principal
-      if (cursor) {
-        cursor.style.transform = `translate(${posRef.current.x - 16}px, ${posRef.current.y - 16}px)`;
+      if (needsUpdate) {
+        needsUpdate = false;
+
+        // Position directe (pas de lerp) = instantané
+        const { x, y } = posRef.current;
+        if (cursor) {
+          cursor.style.transform = `translate3d(${x - 16}px, ${y - 16}px, 0)`;
+        }
+
+        // Trails
+        let prevX = x;
+        let prevY = y;
+        trailRefs.current.forEach((el, i) => {
+          if (!el) return;
+          trailPositions.current[i].x += (prevX - trailPositions.current[i].x) * 0.4;
+          trailPositions.current[i].y += (prevY - trailPositions.current[i].y) * 0.4;
+          const size = 10 - i * 2;
+          el.style.transform = `translate3d(${trailPositions.current[i].x - size / 2}px, ${trailPositions.current[i].y - size / 2}px, 0)`;
+          prevX = trailPositions.current[i].x;
+          prevY = trailPositions.current[i].y;
+        });
       }
-      // Trail
-      let prevX = posRef.current.x;
-      let prevY = posRef.current.y;
-      trailRefs.current.forEach((el, i) => {
-        if (!el) return;
-        const speed = 0.35 - i * 0.03;
-        trailPositions.current[i].x += (prevX - trailPositions.current[i].x) * speed;
-        trailPositions.current[i].y += (prevY - trailPositions.current[i].y) * speed;
-        const size = 12 - i * 1.2;
-        el.style.transform = `translate(${trailPositions.current[i].x - size / 2}px, ${trailPositions.current[i].y - size / 2}px)`;
-        el.style.opacity = (1 - i / 8) * 0.7;
-        prevX = trailPositions.current[i].x;
-        prevY = trailPositions.current[i].y;
-      });
       animationId = requestAnimationFrame(animate);
     }
 
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mousedown", handleMouseDown);
-    window.addEventListener("mouseup", handleMouseUp);
-    animate();
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    window.addEventListener("mousedown", handleMouseDown, { passive: true });
+    window.addEventListener("mouseup", handleMouseUp, { passive: true });
+    animationId = requestAnimationFrame(animate);
 
     return () => {
       cancelAnimationFrame(animationId);

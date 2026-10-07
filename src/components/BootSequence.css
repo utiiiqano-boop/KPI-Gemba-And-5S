@@ -444,3 +444,23 @@
   40%  { opacity: 0.6; }
   100% { opacity: 0; }
 }
+
+/* =========================================================
+   OPTIMISATIONS BOOT SEQUENCE
+   ========================================================= */
+
+/* Réduire les blobs blur */
+.boot-bg-blob {
+  filter: blur(70px) !important;
+}
+
+/* Désactiver les anneaux 2 et 3 (garder 1 seul) */
+.boot-ring-2,
+.boot-ring-3 {
+  display: none !important;
+}
+
+/* Désactiver le scan */
+.boot-bg-scan {
+  display: none !important;
+}

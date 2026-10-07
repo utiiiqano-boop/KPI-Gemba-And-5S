@@ -7,31 +7,38 @@
   pointer-events: none;
   z-index: 99999;
   will-change: transform;
+  transform: translate3d(-100px, -100px, 0);
+  backface-visibility: hidden;
+  contain: layout style;
 }
+
 .cc-ring {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 2px solid rgba(168, 85, 247, 0.6);
-  transition: transform 0.15s ease;
+  border: 2px solid rgba(168, 85, 247, 0.65);
+  transition: transform 0.12s ease, border-color 0.12s ease;
 }
+
 .cc-dot {
   position: absolute;
-  top: 50%; left: 50%;
+  top: 50%;
+  left: 50%;
   width: 5px;
   height: 5px;
-  transform: translate(-50%, -50%);
+  transform: translate3d(-50%, -50%, 0);
   background: #c4b5fd;
   border-radius: 50%;
-  box-shadow: 0 0 12px #a855f7, 0 0 24px #a855f7;
+  box-shadow: 0 0 10px #a855f7;
 }
+
 .cc-cursor.cursor-click .cc-ring {
-  transform: scale(1.6);
+  transform: scale(1.5);
   border-color: #06b6d4;
 }
+
 .cc-cursor.cursor-click .cc-dot {
   background: #67e8f9;
-  box-shadow: 0 0 16px #06b6d4;
 }
 
 .cc-trail-container {
@@ -39,16 +46,49 @@
   inset: 0;
   pointer-events: none;
   z-index: 99998;
-}
-.cc-trail {
-  position: absolute;
-  top: 0; left: 0;
-  border-radius: 50%;
-  will-change: transform, opacity;
-  mix-blend-mode: screen;
+  contain: layout style;
 }
 
-/* Hide default cursor on desktop */
+.cc-trail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 50%;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/* Cacher le curseur natif sur desktop uniquement */
 @media (hover: hover) and (pointer: fine) {
-  * { cursor: none !important; }
+  html, body, body * {
+    cursor: none !important;
+  }
+  /* Sauf sur les inputs de type date et les selects (pour l'UX native) */
+  input[type="date"],
+  input[type="time"],
+  select {
+    cursor: pointer !important;
+  }
+}
+
+/* Mobile : restaurer le curseur natif */
+@media (hover: none) {
+  .cc-cursor,
+  .cc-trail-container {
+    display: none !important;
+  }
+  html, body, body * {
+    cursor: auto !important;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .cc-cursor,
+  .cc-trail-container {
+    display: none !important;
+  }
+  html, body, body * {
+    cursor: auto !important;
+  }
 }

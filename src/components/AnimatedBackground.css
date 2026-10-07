@@ -287,3 +287,40 @@
     animation: none !important;
   }
 }
+
+/* =========================================================
+   OPTIMISATIONS PERF
+   ========================================================= */
+
+/* Réduire le blur des blobs (100px → 60px) = moins de calcul GPU */
+.ab-blob {
+  filter: blur(60px) !important;
+}
+
+/* Réduire l'opacité du mesh pour alléger la composition */
+.ab-mesh {
+  opacity: 0.7;
+}
+
+/* Vagues : réduire le nombre de couches */
+.ab-wave-3 {
+  display: none !important;
+}
+
+/* Orbes : réduire le mix-blend-mode (très coûteux) */
+.ab-orb {
+  mix-blend-mode: normal !important;
+  opacity: 0.4 !important;
+}
+
+/* Étoiles filantes : réduire à 2 */
+.ab-star-3,
+.ab-star-4 {
+  display: none !important;
+}
+
+/* Grille : désactiver l'animation de pulse (coûteux) */
+.ab-grid {
+  animation: none !important;
+  opacity: 0.5 !important;
+}
