@@ -28,7 +28,7 @@ export default function Period5SReport({ records, periodLabel, generatedAt = new
     <div className="report-root">
       <div className="report-header">
         <div className="report-logo">
-          <div className="report-logo-mark">KPI</div>
+          <div className="report-logo-mark"><img src="/logo-wkw.png" alt="WKW" style={{width:"70%",height:"70%",objectFit:"contain"}} /></div>
           <div>
             <div className="report-brand-title">KPI Gemba & 5S</div>
             <div className="report-brand-sub">Rapport de période — 5S</div>

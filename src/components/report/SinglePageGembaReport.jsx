@@ -24,7 +24,7 @@ export default function SinglePageGembaReport({ audit, generatedAt = new Date() 
       {/* HEADER */}
       <div className="sp-header">
         <div className="sp-logo">
-          <div className="sp-logo-mark">KPI</div>
+          <div className="sp-logo-mark"><img src="/logo-wkw.png" alt="WKW" style={{width:"70%",height:"70%",objectFit:"contain"}} /></div>
           <div>
             <div className="sp-brand">KPI Gemba & 5S</div>
             <div className="sp-brand-sub">Rapport Gemba OJT</div>

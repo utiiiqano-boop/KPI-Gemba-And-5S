@@ -1,0 +1,289 @@
+/* =========================================================
+   BACKGROUND ULTRA-ANIMÉ — 9 couches
+   ========================================================= */
+
+.ab-root {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: #05080f;
+  pointer-events: none;
+}
+
+/* ============ COUCHE 1 : Mesh gradient animé ============ */
+.ab-mesh {
+  position: absolute;
+  inset: -50%;
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(99, 102, 241, 0.35), transparent 40%),
+    radial-gradient(ellipse at 80% 30%, rgba(168, 85, 247, 0.3), transparent 40%),
+    radial-gradient(ellipse at 30% 80%, rgba(6, 182, 212, 0.25), transparent 40%),
+    radial-gradient(ellipse at 80% 80%, rgba(236, 72, 153, 0.2), transparent 40%);
+  animation: meshRotate 40s linear infinite;
+  filter: blur(20px);
+}
+@keyframes meshRotate {
+  0%   { transform: rotate(0deg) scale(1); }
+  50%  { transform: rotate(180deg) scale(1.15); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+/* ============ COUCHE 2 : Blobs morphing ============ */
+.ab-blobs {
+  position: absolute;
+  inset: 0;
+}
+.ab-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.55;
+  will-change: transform, border-radius;
+}
+.ab-blob-1 {
+  width: 550px; height: 550px;
+  background: radial-gradient(circle, #6366f1, transparent 70%);
+  top: -120px; left: -120px;
+  animation: blobMorph1 20s ease-in-out infinite;
+}
+.ab-blob-2 {
+  width: 650px; height: 650px;
+  background: radial-gradient(circle, #a855f7, transparent 70%);
+  bottom: -200px; right: -180px;
+  animation: blobMorph2 24s ease-in-out infinite;
+}
+.ab-blob-3 {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, #06b6d4, transparent 70%);
+  top: 40%; left: 45%;
+  animation: blobMorph3 22s ease-in-out infinite;
+}
+.ab-blob-4 {
+  width: 480px; height: 480px;
+  background: radial-gradient(circle, #ec4899, transparent 70%);
+  bottom: 10%; left: -100px;
+  animation: blobMorph4 26s ease-in-out infinite;
+}
+
+@keyframes blobMorph1 {
+  0%, 100% { transform: translate(0, 0) scale(1); border-radius: 50%; }
+  33%      { transform: translate(180px, 120px) scale(1.15); border-radius: 60% 40% 55% 45%; }
+  66%      { transform: translate(100px, 240px) scale(0.9); border-radius: 40% 60% 45% 55%; }
+}
+@keyframes blobMorph2 {
+  0%, 100% { transform: translate(0, 0) scale(1); border-radius: 50%; }
+  50%      { transform: translate(-200px, -140px) scale(1.2); border-radius: 45% 55% 60% 40%; }
+}
+@keyframes blobMorph3 {
+  0%, 100% { transform: translate(0, 0) scale(1); border-radius: 50%; }
+  50%      { transform: translate(-140px, 180px) scale(0.85); border-radius: 55% 45% 40% 60%; }
+}
+@keyframes blobMorph4 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(220px, -100px) scale(1.1); }
+}
+
+/* ============ COUCHE 3 : Grille pulsante ============ */
+.ab-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(139, 92, 246, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 92, 246, 0.08) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+  animation: gridPulse 6s ease-in-out infinite;
+}
+@keyframes gridPulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%      { opacity: 0.9; transform: scale(1.02); }
+}
+
+/* ============ COUCHE 4 : Étoiles filantes ============ */
+.ab-shooting-stars {
+  position: absolute;
+  inset: 0;
+}
+.ab-star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 0 12px 3px rgba(255, 255, 255, 0.8);
+}
+.ab-star::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 180px;
+  height: 1px;
+  background: linear-gradient(90deg, white, transparent);
+  transform: translateY(-50%);
+  animation: trail 3s linear infinite;
+}
+.ab-star-1 {
+  top: 12%; left: -200px;
+  animation: shoot1 8s linear infinite;
+}
+.ab-star-2 {
+  top: 45%; left: -200px;
+  animation: shoot2 12s linear infinite;
+  animation-delay: 3s;
+}
+.ab-star-3 {
+  top: 75%; left: -200px;
+  animation: shoot3 10s linear infinite;
+  animation-delay: 6s;
+}
+.ab-star-4 {
+  top: 25%; left: -200px;
+  animation: shoot1 14s linear infinite;
+  animation-delay: 9s;
+}
+@keyframes shoot1 {
+  0%   { transform: translateX(0) translateY(0); opacity: 0; }
+  5%   { opacity: 1; }
+  95%  { opacity: 1; }
+  100% { transform: translateX(calc(100vw + 400px)) translateY(300px); opacity: 0; }
+}
+@keyframes shoot2 {
+  0%   { transform: translateX(0) translateY(0); opacity: 0; }
+  5%   { opacity: 1; }
+  100% { transform: translateX(calc(100vw + 400px)) translateY(500px); opacity: 0; }
+}
+@keyframes shoot3 {
+  0%   { transform: translateX(0) translateY(0); opacity: 0; }
+  5%   { opacity: 1; }
+  100% { transform: translateX(calc(100vw + 400px)) translateY(-200px); opacity: 0; }
+}
+
+/* ============ COUCHE 5 : Vagues lumineuses horizontales ============ */
+.ab-waves {
+  position: absolute;
+  inset: 0;
+}
+.ab-wave {
+  position: absolute;
+  left: -50%;
+  right: -50%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.6), rgba(6, 182, 212, 0.6), transparent);
+  filter: blur(1px);
+}
+.ab-wave-1 {
+  top: 25%;
+  animation: waveMove 8s ease-in-out infinite;
+}
+.ab-wave-2 {
+  top: 55%;
+  animation: waveMove 11s ease-in-out infinite;
+  animation-delay: 2s;
+  background: linear-gradient(90deg, transparent, rgba(236, 72, 153, 0.5), rgba(99, 102, 241, 0.5), transparent);
+}
+.ab-wave-3 {
+  top: 80%;
+  animation: waveMove 14s ease-in-out infinite;
+  animation-delay: 4s;
+}
+@keyframes waveMove {
+  0%, 100% { transform: translateX(-15%) scaleY(1); opacity: 0.3; }
+  50%      { transform: translateX(15%) scaleY(3); opacity: 1; }
+}
+
+/* ============ COUCHE 6 : Orbes rotatifs ============ */
+.ab-orbs {
+  position: absolute;
+  inset: 0;
+}
+.ab-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(30px);
+  mix-blend-mode: screen;
+}
+.ab-orb-1 {
+  width: 250px; height: 250px;
+  top: 15%; right: 20%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.6), transparent 70%);
+  animation: orbFloat1 14s ease-in-out infinite;
+}
+.ab-orb-2 {
+  width: 180px; height: 180px;
+  bottom: 20%; left: 15%;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.5), transparent 70%);
+  animation: orbFloat2 18s ease-in-out infinite;
+}
+.ab-orb-3 {
+  width: 300px; height: 300px;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.4), transparent 70%);
+  animation: orbFloat3 22s ease-in-out infinite;
+}
+@keyframes orbFloat1 {
+  0%, 100% { transform: translate(0, 0); }
+  33%      { transform: translate(-100px, 120px); }
+  66%      { transform: translate(80px, -60px); }
+}
+@keyframes orbFloat2 {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(140px, -100px); }
+}
+@keyframes orbFloat3 {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+  50%      { transform: translate(-50%, -50%) scale(1.4); opacity: 0.8; }
+}
+
+/* ============ COUCHE 7 : Rayons diagonaux ============ */
+.ab-rays {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+}
+.ab-ray {
+  position: absolute;
+  width: 1px;
+  height: 200%;
+  background: linear-gradient(180deg, transparent, rgba(139, 92, 246, 0.4), transparent);
+  top: -50%;
+  transform: rotate(20deg);
+  transform-origin: top center;
+  opacity: 0;
+}
+.ab-ray-1 { left: 15%; animation: rayShine 12s ease-in-out infinite; }
+.ab-ray-2 { left: 35%; animation: rayShine 14s ease-in-out infinite; animation-delay: 3s; }
+.ab-ray-3 { left: 65%; animation: rayShine 16s ease-in-out infinite; animation-delay: 6s; background: linear-gradient(180deg, transparent, rgba(6, 182, 212, 0.4), transparent); }
+.ab-ray-4 { left: 85%; animation: rayShine 13s ease-in-out infinite; animation-delay: 9s; background: linear-gradient(180deg, transparent, rgba(236, 72, 153, 0.4), transparent); }
+@keyframes rayShine {
+  0%, 100% { opacity: 0; transform: rotate(20deg) scaleY(0.8); }
+  50%      { opacity: 0.6; transform: rotate(20deg) scaleY(1); }
+}
+
+/* ============ COUCHE 8 : Canvas constellation ============ */
+.ab-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+/* ============ COUCHE 9 : Vignette ============ */
+.ab-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 30%, rgba(5, 8, 15, 0.7) 100%);
+  pointer-events: none;
+}
+
+/* ============ ACCESSIBILITY ============ */
+@media (prefers-reduced-motion: reduce) {
+  .ab-mesh, .ab-blob, .ab-grid, .ab-star, .ab-wave, .ab-orb, .ab-ray {
+    animation: none !important;
+  }
+}

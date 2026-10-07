@@ -169,3 +169,31 @@ body {
   color: white;
 }
 .share-audit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ============ Logo ============ */
+.logo-wrap-img {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4);
+}
+.logo-wrap-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 6px;
+}
+.logo-fallback::after {
+  content: "W";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: white;
+  font-weight: 900;
+  font-size: 60%;
+}

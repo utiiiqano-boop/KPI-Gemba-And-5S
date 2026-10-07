@@ -345,3 +345,18 @@
   color: #475569 !important;
   font-weight: 700;
 }
+
+/* Logo dans le rapport — fond blanc, image normale */
+.sp-logo-mark,
+.report-logo-mark {
+  background: #ffffff !important;
+  padding: 4px !important;
+  border: 1px solid #e2e8f0;
+}
+.sp-logo-mark img,
+.report-logo-mark img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  filter: none !important;
+}

@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
+import Logo from "../Logo";
 import "./Sidebar.css";
 
 const NAV_ITEMS = [
@@ -78,10 +79,7 @@ export default function Sidebar({ collapsed, onToggle }) {
     <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
       <div className="sidebar-brand">
         <div className="brand-mark">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M3 3v18h18" strokeLinecap="round" />
-            <path d="M7 15l4-4 3 3 5-6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <Logo size={40} />
         </div>
         {!collapsed && (
           <div className="brand-text">
