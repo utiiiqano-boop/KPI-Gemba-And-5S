@@ -1,9 +1,13 @@
 import "./SinglePageReport.css";
+import { use5SPhotos } from "../../hooks/use5SPhotos";
+import { thumbnailUrl } from "../../utils/cloudinary";
 import { parseDate } from "../../utils/analytics";
 
 export default function SinglePage5SReport({ record, generatedAt = new Date() }) {
   if (!record) return null;
+  const auditId = record._id;
   const meta = record.meta || {};
+  const { photos: photosData } = use5SPhotos(auditId);
 
   // ✅ Convertit le serial Excel en date lisible
   const parsedDate =
@@ -21,8 +25,14 @@ export default function SinglePage5SReport({ record, generatedAt = new Date() })
   const score = scores.percent || 0;
   const scoreClass = score <= 80 ? "red" : score <= 85 ? "orange" : "green";
 
+  // Récupère les photos d'une question (Q1..Q26)
+  const getPhotosForQuestion = (qIndex) => {
+    const list = photosData?.[String(qIndex)] || photosData?.[qIndex] || {};
+    return Object.entries(list).map(([id, p]) => ({ id, ...p }));
+  };
+
   return (
-    <div className="sp-report">
+    <div className="sp-report" id="report-container">
       {/* HEADER */}
       <div className="sp-header">
         <div className="sp-logo">
@@ -108,11 +118,15 @@ export default function SinglePage5SReport({ record, generatedAt = new Date() })
       <div className="sp-questions">
         {answers.map((a) => {
           const status = a.status === "OK" ? "pass" : a.status === "NOK" ? "fail" : "na";
+          const qPhotos = getPhotosForQuestion(a.index);
           return (
-            <div key={a.index} className={`sp-q ${status}`}>
+            <div key={a.index} className={`sp-q ${status} ${qPhotos.length ? "has-photos" : ""}`}>
               <span className="sp-q-num">Q{a.index}</span>
               <span className="sp-q-text">{a.short || a.question}</span>
               <span className={`sp-q-pill ${status}`}>{a.status}</span>
+              {qPhotos.length > 0 && (
+                <span className="sp-q-photo-badge">📷 {qPhotos.length}</span>
+              )}
             </div>
           );
         })}
@@ -154,7 +168,64 @@ export default function SinglePage5SReport({ record, generatedAt = new Date() })
       </div>
 
       {/* FOOTER */}
-      <div className="sp-footer">
+      {/* ============ SECTION PHOTOS PRO ============ */}
+
+      {/* ============ SECTION PHOTOS COMPACTE ============ */}
+
+      
+      {/* ============ PHOTOS DES NON-CONFORMITÉS (COMPACT) ============ */}
+      {(() => {
+        const questionsWithPhotos = answers
+          .map((a) => ({
+            index: a.index,
+            short: a.short || a.question,
+            status: a.status,
+            photos: getPhotosForQuestion(a.index),
+          }))
+          .filter((q) => q.photos.length > 0);
+
+        if (questionsWithPhotos.length === 0) return null;
+
+        const totalPhotos = questionsWithPhotos.reduce((sum, q) => sum + q.photos.length, 0);
+
+        return (
+          <div className="sp-photos-section">
+            <div className="sp-photos-title">
+              📷 Photos des non-conformités
+              <span className="sp-photos-title-count">{totalPhotos}</span>
+            </div>
+
+            {questionsWithPhotos.map((q) => (
+              <div key={q.index} className="sp-photo-row">
+                <div className="sp-photo-info">
+                  <div className="sp-photo-qnum">Q{q.index}</div>
+                  <div className={`sp-photo-status ${q.status === "NOK" ? "fail" : q.status === "OK" ? "pass" : "na"}`}>
+                    {q.status}
+                  </div>
+                  <div className="sp-photo-qtitle">{q.short}</div>
+                </div>
+                <div className="sp-photo-thumbs">
+                  {q.photos.map((p, i) => (
+                    <div key={p.id} className="sp-photo-thumb">
+                      <img
+                        src={thumbnailUrl(p.publicId, 400)}
+                        alt={`Q${q.index} photo ${i + 1}`}
+                        crossOrigin="anonymous"
+                        width="120"
+                        height="90"
+                        style={{ width: "120px", height: "90px", objectFit: "cover", display: "block" }}
+                      />
+                      
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
+<div className="sp-footer">
         <div>KPI Gemba & 5S — Document confidentiel</div>
         <div>Audit #{meta.id || "—"} · {meta.zone || "—"} · {meta.date || "—"}</div>
       </div>

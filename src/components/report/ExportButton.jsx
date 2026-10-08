@@ -1,117 +1,245 @@
-import { useRef, useState } from "react";
-import html2canvas from "html2canvas";
+import React from "react";
 import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
-export default function ExportButton({ renderContent, fileName, label = "Exporter PDF" }) {
-  const containerRef = useRef(null);
-  const [generating, setGenerating] = useState(false);
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      resolve({
+        dataUrl: canvas.toDataURL("image/jpeg", 0.9),
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+      });
+    };
+    img.onerror = () => reject(new Error(`Erreur: ${url}`));
+    img.src = url;
+  });
+}
 
-  async function handleExport() {
-    if (generating) return;
-    setGenerating(true);
+export default function ExportButton({ fileName = "audit-5S", label = "Télécharger PDF" }) {
+  const handleDownload = async () => {
+    const container = document.getElementById("report-container");
+    if (!container) {
+      alert("Rapport introuvable.");
+      return;
+    }
+
+    console.log("📄 Génération du PDF professionnel...");
+
+    // ⭐ 1. Récupérer les photos AVANT de masquer la section
+    const photoRows = Array.from(container.querySelectorAll(".sp-photo-row")).map((row) => ({
+      qnum: row.querySelector(".sp-photo-qnum")?.textContent || "",
+      status: row.querySelector(".sp-photo-status")?.textContent || "",
+      title: row.querySelector(".sp-photo-qtitle")?.textContent || "",
+      photos: Array.from(row.querySelectorAll(".sp-photo-thumb img")).map((img) => img.src),
+    }));
+
+    // ⭐ 2. Masquer la section photos (pour la capture page 1)
+    const photosSection = container.querySelector(".sp-photos-section");
+    const photosSectionDisplay = photosSection ? photosSection.style.display : "";
+    if (photosSection) photosSection.style.display = "none";
+
+    // ⭐ 3. Convertir les images restantes (logo) en base64
+    const images = Array.from(container.querySelectorAll("img"));
+    const originalSrcs = images.map((img) => img.src);
+    for (let i = 0; i < images.length; i++) {
+      try {
+        const res = await fetch(images[i].src, { mode: "cors" });
+        const blob = await res.blob();
+        const b64 = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(blob);
+        });
+        images[i].src = b64;
+      } catch (err) {
+        console.warn(`Image ${i+1} non convertie:`, err);
+      }
+    }
+
+    await new Promise((r) => setTimeout(r, 800));
+
+    // ⭐ 4. Désactiver l'overflow des parents
+    const parents = [];
+    let p = container.parentElement;
+    while (p && p !== document.body) {
+      const st = window.getComputedStyle(p);
+      if (st.overflow === "auto" || st.overflow === "scroll" ||
+          st.overflowY === "auto" || st.overflowY === "scroll") {
+        parents.push({ el: p, o: p.style.overflow, oy: p.style.overflowY });
+        p.style.overflow = "visible";
+        p.style.overflowY = "visible";
+      }
+      p = p.parentElement;
+    }
+
     try {
-      const host = containerRef.current;
-      if (!host) throw new Error("Conteneur introuvable");
-      await new Promise((r) => setTimeout(r, 400));
-      const target = host.firstElementChild;
-      if (!target) throw new Error("Contenu du rapport introuvable");
+      // ⭐ 5. Charger les photos Cloudinary en parallèle
+      console.log("📸 Chargement des photos...");
+      const photosLoaded = [];
+      for (const row of photoRows) {
+        const loaded = [];
+        for (const url of row.photos) {
+          try {
+            const imgData = await loadImage(url);
+            loaded.push(imgData);
+            console.log(`  ✅ ${row.qnum} chargée`);
+          } catch (err) {
+            console.error(`  ❌ ${row.qnum}:`, err);
+          }
+        }
+        photosLoaded.push({ ...row, photos: loaded });
+      }
 
-      const canvas = await html2canvas(target, {
-        scale: 3,                      // ↑ haute résolution
-        backgroundColor: "#ffffff",
+      // ⭐ 6. CAPTURE PAGE 1 : html2canvas du rapport sans photos
+      console.log("📸 Capture du rapport HTML...");
+      const canvas = await html2canvas(container, {
+        scale: 2,
         useCORS: true,
+        allowTaint: false,
+        backgroundColor: "#ffffff",
         logging: false,
-        allowTaint: true,
-        letterRendering: true,
-        removeContainer: true,
-        imageTimeout: 0,
-        onclone: (clonedDoc) => {
-          // Force toutes les couleurs en mode clair
-          const style = clonedDoc.createElement("style");
-          style.textContent = `
-            * {
-              -webkit-font-smoothing: auto !important;
-              -moz-osx-font-smoothing: auto !important;
-              text-rendering: geometricPrecision !important;
-              opacity: 1 !important;
+        scrollY: 0,
+        scrollX: 0,
+        windowWidth: container.scrollWidth,
+        windowHeight: container.scrollHeight,
+      });
+
+      // ⭐ 7. Créer le PDF
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      // Ajouter la capture page 1 (UNE SEULE PAGE)
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      const imgProps = pdf.getImageProperties(imgData);
+      const imgHeight = (imgProps.height * pageWidth) / imgProps.width;
+
+      // ⭐ Ajuster la hauteur pour tenir sur une seule page A4
+      const finalHeight = Math.min(imgHeight, pageHeight);
+      pdf.addImage(imgData, "JPEG", 0, 0, pageWidth, finalHeight);
+
+      // Si l'image dépasse la page, on la coupe (pas de page vide)
+
+      // ⭐ 8. PAGE PHOTOS : Ajouter les photos manuellement
+      if (photosLoaded.length > 0) {
+        pdf.addPage();
+        let py = 10;
+        const margin = 10;
+
+        // Titre
+        pdf.setFontSize(14);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(15, 23, 42);
+        pdf.text("PHOTOS DES NON-CONFORMITÉS", margin, py);
+        py += 6;
+
+        // Badge count
+        const totalPhotos = photosLoaded.reduce((sum, r) => sum + r.photos.length, 0);
+        pdf.setFillColor(15, 23, 42);
+        pdf.roundedRect(pageWidth - margin - 15, py - 5, 15, 7, 3, 3, "F");
+        pdf.setFontSize(10);
+        pdf.setTextColor(255, 255, 255);
+        pdf.text(String(totalPhotos), pageWidth - margin - 7.5, py, { align: "center" });
+        pdf.setTextColor(15, 23, 42);
+
+        py += 8;
+
+        for (const row of photosLoaded) {
+          if (py + 60 > pageHeight - margin) {
+            pdf.addPage();
+            py = margin;
+          }
+
+          // En-tête de ligne
+          pdf.setFillColor(238, 242, 255);
+          pdf.rect(margin, py, pageWidth - 2 * margin, 7, "F");
+
+          pdf.setFontSize(9);
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(67, 56, 202);
+          pdf.text(row.qnum, margin + 2, py + 5);
+
+          pdf.setFillColor(220, 38, 38);
+          pdf.roundedRect(margin + 15, py + 1.5, 10, 4, 0.5, 0.5, "F");
+          pdf.setFontSize(7);
+          pdf.setTextColor(255, 255, 255);
+          pdf.text(row.status, margin + 20, py + 4.5, { align: "center" });
+
+          pdf.setFontSize(9);
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(15, 23, 42);
+          pdf.text(row.title.substring(0, 60), margin + 28, py + 5);
+
+          py += 9;
+
+          const photoWidth = 55;
+          const photoHeight = 42;
+          const gap = 4;
+          let x = margin;
+
+          for (const photo of row.photos) {
+            if (x + photoWidth > pageWidth - margin) {
+              x = margin;
+              py += photoHeight + gap;
+              if (py + photoHeight > pageHeight - margin) {
+                pdf.addPage();
+                py = margin;
+              }
             }
-          `;
-          clonedDoc.head.appendChild(style);
-        },
-      });
-
-      const imgData = canvas.toDataURL("image/png", 1.0);
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-        compress: true,
-      });
-
-      const pageW = 210;
-      const pageH = 297;
-      const margin = 6;
-      const imgW = pageW - 2 * margin;
-      const imgH = (canvas.height * imgW) / canvas.width;
-
-      if (imgH <= (pageH - 2 * margin)) {
-        // 1 seule page
-        pdf.addImage(imgData, "PNG", margin, margin, imgW, imgH, undefined, "FAST");
-      } else {
-        // Multi-pages
-        let heightLeft = imgH;
-        let position = margin;
-        pdf.addImage(imgData, "PNG", margin, position, imgW, imgH, undefined, "FAST");
-        heightLeft -= (pageH - 2 * margin);
-        while (heightLeft > 0) {
-          position = heightLeft - imgH + margin;
-          pdf.addPage();
-          pdf.addImage(imgData, "PNG", margin, position, imgW, imgH, undefined, "FAST");
-          heightLeft -= (pageH - 2 * margin);
+            try {
+              pdf.addImage(photo.dataUrl, "JPEG", x, py, photoWidth, photoHeight);
+              pdf.setDrawColor(203, 213, 225);
+              pdf.rect(x, py, photoWidth, photoHeight);
+            } catch (err) {
+              console.error("Erreur image:", err);
+            }
+            x += photoWidth + gap;
+          }
+          py += photoHeight + 6;
         }
       }
 
-      pdf.save(fileName);
+      pdf.save(`${fileName}.pdf`);
+      console.log("✅ PDF généré !");
     } catch (err) {
-      console.error("Export PDF error:", err);
-      alert("Erreur lors de l'export PDF : " + err.message);
+      console.error("❌ Erreur PDF:", err);
+      alert("Erreur lors de la génération du PDF.");
     } finally {
-      setGenerating(false);
+      if (photosSection) photosSection.style.display = photosSectionDisplay;
+      images.forEach((img, i) => {
+        if (originalSrcs[i]) img.src = originalSrcs[i];
+      });
+      parents.forEach(({ el, o, oy }) => {
+        el.style.overflow = o || "";
+        el.style.overflowY = oy || "";
+      });
     }
-  }
+  };
 
   return (
-    <>
-      <button className="export-pdf-btn" onClick={handleExport} disabled={generating} type="button">
-        {generating ? (
-          <>
-            <span className="spinner-pdf" />
-            Génération...
-          </>
-        ) : (
-          <>
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" strokeLinecap="round" />
-              <path d="M7 10l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M12 15V3" strokeLinecap="round" />
-            </svg>
-            {label}
-          </>
-        )}
-      </button>
-      <div
-        ref={containerRef}
-        style={{
-          position: "fixed",
-          left: "-99999px",
-          top: 0,
-          pointerEvents: "none",
-          zIndex: -1,
-          background: "#ffffff",
-        }}
-      >
-        {renderContent()}
-      </div>
-    </>
+    <button
+      onClick={handleDownload}
+      className="no-print export-btn"
+      style={{
+        padding: "10px 20px",
+        background: "#4f46e5",
+        color: "white",
+        border: "none",
+        borderRadius: "6px",
+        cursor: "pointer",
+        fontWeight: "bold",
+        fontSize: "14px"
+      }}
+    >
+      📥 {label}
+    </button>
   );
 }

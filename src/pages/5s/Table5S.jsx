@@ -14,6 +14,7 @@ import "../../pages/Results.css";
 
 export default function Table5S() {
   const { data: records, loading } = useRealtimeList("5s_audits");
+  const [reportRecord, setReportRecord] = useState(null);
 
   const [zone, setZone] = useState("");
   const [auditor, setAuditor] = useState("");
@@ -127,11 +128,21 @@ export default function Table5S() {
         const original = records.find((x) => x._id === r._id);
         if (!original) return null;
         return (
-          <ExportButton
-            fileName={`audit-5S-${original?.meta?.zone || "zone"}-${original?.meta?.date || ""}.pdf`}
-            label="PDF"
-            renderContent={() => <SinglePage5SReport record={original} />}
-          />
+          <button
+            onClick={() => setReportRecord(original)}
+            style={{
+              padding: "6px 12px",
+              background: "#4f46e5",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: "bold",
+              fontSize: "12px",
+            }}
+          >
+            📄 Voir rapport
+          </button>
         );
       }
     },
@@ -179,6 +190,49 @@ export default function Table5S() {
           emptyMessage="Aucun audit 5S pour ces filtres."
         />
       )}
-    </div>
+    
+      {/* MODALE DU RAPPORT */}
+      {reportRecord && (
+        <div
+          id="report-modal"
+          style={{
+            position: "fixed",
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: "rgba(0,0,0,0.8)",
+            // ID pour cibler l'impression
+            zIndex: 9999,
+            overflow: "auto",
+            padding: "20px",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setReportRecord(null);
+          }}
+        >
+          <div style={{ maxWidth: "900px", margin: "0 auto", background: "white", borderRadius: "8px", padding: "10px" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginBottom: "10px" }}>
+              <ExportButton
+                fileName={`audit-5S-${reportRecord?.meta?.zone || "zone"}-${reportRecord?.meta?.date || ""}.pdf`}
+                label="📄 Télécharger PDF"
+              />
+              <button
+                onClick={() => setReportRecord(null)}
+                style={{
+                  padding: "8px 16px",
+                  background: "#64748b",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                ✕ Fermer
+              </button>
+            </div>
+            <SinglePage5SReport record={reportRecord} />
+          </div>
+        </div>
+      )}
+</div>
   );
 }
