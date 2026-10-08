@@ -15,6 +15,7 @@ const NAV_ITEMS = [
       { to: "/5s/import", label: "Import 5S Data", icon: "upload" },
       { to: "/5s/results", label: "5S Résultats", icon: "chart" },
       { to: "/5s/table", label: "5S Tableau", icon: "table" },
+      { to: "/5s/photos", label: "5S Photos", icon: "camera" },
     ],
   },
   {
@@ -47,6 +48,12 @@ const ICONS = {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M3 3v18h18" strokeLinecap="round" />
       <path d="M7 15l4-4 3 3 5-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  camera: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="12" cy="13" r="4"/>
     </svg>
   ),
   table: (
