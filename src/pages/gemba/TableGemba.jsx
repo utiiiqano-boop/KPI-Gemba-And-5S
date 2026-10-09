@@ -17,6 +17,7 @@ export default function TableGemba() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [viewMode, setViewMode] = useState("audits");
+  const [reportAudit, setReportAudit] = useState(null);
 
   // Force reset au montage (évite le pré-remplissage navigateur)
   useEffect(() => { setFrom(""); setTo(""); }, []);
@@ -147,11 +148,21 @@ export default function TableGemba() {
         const original = auditRowsFull.find((x) => x.key === r._id);
         if (!original) return null;
         return (
-          <ExportButton
-            fileName={`audit-Gemba-${original.ligne || "ligne"}-${original.date || ""}.pdf`}
-            label="PDF"
-            renderContent={() => <SinglePageGembaReport audit={original} />}
-          />
+          <button
+            onClick={() => setReportAudit(original)}
+            style={{
+              padding: "6px 12px",
+              background: "#4f46e5",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: "bold",
+              fontSize: "12px",
+            }}
+          >
+            📄 Voir rapport
+          </button>
         );
       }
     },
@@ -214,6 +225,48 @@ export default function TableGemba() {
           emptyMessage="Aucune donnée Gemba pour ces filtres."
         />
       )}
-    </div>
+    
+      {/* MODALE DU RAPPORT GEMBA */}
+      {reportAudit && (
+        <div
+          id="report-modal"
+          style={{
+            position: "fixed",
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: "rgba(0,0,0,0.8)",
+            zIndex: 9999,
+            overflow: "auto",
+            padding: "20px",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setReportAudit(null);
+          }}
+        >
+          <div style={{ maxWidth: "900px", margin: "0 auto", background: "white", borderRadius: "8px", padding: "10px" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginBottom: "10px" }}>
+              <ExportButton
+                fileName={`audit-Gemba-${reportAudit.ligne || "ligne"}-${reportAudit.date || ""}.pdf`}
+                label="📥 Télécharger PDF"
+              />
+              <button
+                onClick={() => setReportAudit(null)}
+                style={{
+                  padding: "10px 20px",
+                  background: "#64748b",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                ✕ Fermer
+              </button>
+            </div>
+            <SinglePageGembaReport audit={reportAudit} />
+          </div>
+        </div>
+      )}
+</div>
   );
 }

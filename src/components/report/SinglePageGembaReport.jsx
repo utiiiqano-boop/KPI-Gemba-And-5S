@@ -20,7 +20,7 @@ export default function SinglePageGembaReport({ audit, generatedAt = new Date() 
   )];
 
   return (
-    <div className="sp-report">
+    <div className="sp-report" id="report-container">
       {/* HEADER */}
       <div className="sp-header">
         <div className="sp-logo">
